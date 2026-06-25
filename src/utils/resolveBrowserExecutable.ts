@@ -64,8 +64,30 @@ function normalizeBrowserConfig(
   };
 }
 
-function getDefaultCacheDir(): string {
+/** Default puppeteer browsers cache (~/.cache/puppeteer). */
+export function getDefaultCacheDir(): string {
   return process.env.PUPPETEER_CACHE_DIR ?? join(homedir(), '.cache', 'puppeteer');
+}
+
+/**
+ * Cache directories to search for installed browsers.
+ * Includes @puppeteer/browsers CLI default (process.cwd()) when install is run without --path.
+ */
+export function getSearchCacheDirs(explicitCacheDir?: string): string[] {
+  const dirs = new Set<string>();
+
+  if (explicitCacheDir) {
+    dirs.add(explicitCacheDir);
+  }
+
+  if (process.env.PUPPETEER_CACHE_DIR) {
+    dirs.add(process.env.PUPPETEER_CACHE_DIR);
+  }
+
+  dirs.add(join(homedir(), '.cache', 'puppeteer'));
+  dirs.add(process.cwd());
+
+  return [...dirs];
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -82,6 +104,29 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+interface InstalledBrowserEntry {
+  browser: string;
+  buildId: string;
+  platform: string;
+  executablePath?: string;
+}
+
+/** Compare Chrome-style build IDs (e.g. 150.0.7871.24) for descending sort. */
+function compareBuildIds(a: string, b: string): number {
+  const pa = a.split('.').map((part) => Number(part));
+  const pb = b.split('.').map((part) => Number(part));
+  const len = Math.max(pa.length, pb.length);
+
+  for (let i = 0; i < len; i++) {
+    const diff = (pb[i] ?? 0) - (pa[i] ?? 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+
+  return 0;
+}
+
 async function resolveFromBrowsersPackage(
   config: ScreenPoolConfig,
 ): Promise<string> {
@@ -92,7 +137,6 @@ async function resolveFromBrowsersPackage(
   const browserConfig = normalizeBrowserConfig(config.browser);
   const type = browserConfig.type ?? 'chrome';
   const channel = browserConfig.channel ?? 'stable';
-  const cacheDir = browserConfig.cacheDir ?? getDefaultCacheDir();
   const shorthand = `${type}@${channel}`;
 
   let browsersModule: typeof import('@puppeteer/browsers');
@@ -105,8 +149,13 @@ async function resolveFromBrowsersPackage(
     );
   }
 
-  const { Browser, computeExecutablePath, getInstalledBrowsers, resolveBuildId, detectBrowserPlatform } =
-    browsersModule;
+  const {
+    Browser,
+    computeExecutablePath,
+    getInstalledBrowsers,
+    resolveBuildId,
+    detectBrowserPlatform,
+  } = browsersModule;
 
   const browserKeyMap = {
     chrome: Browser.CHROME,
@@ -121,26 +170,76 @@ async function resolveFromBrowsersPackage(
     throw new BrowserResolveError('Could not detect browser platform.');
   }
 
-  const buildId =
+  const preferredBuildId =
     browserConfig.buildId ?? (await resolveBuildId(browserEnum, platform, channel));
 
-  const installed = await getInstalledBrowsers({ cacheDir });
-  const isInstalled = installed.some(
-    (b) => b.browser === browserEnum && b.buildId === buildId,
-  );
+  const cacheDirs = getSearchCacheDirs(browserConfig.cacheDir);
+  const searchedDirs: string[] = [];
 
-  if (!isInstalled) {
-    throw new BrowserNotInstalledError(
-      shorthand,
-      `npx @puppeteer/browsers install ${type}@${channel}`,
+  for (const cacheDir of cacheDirs) {
+    searchedDirs.push(cacheDir);
+    let installed: InstalledBrowserEntry[];
+    try {
+      installed = await getInstalledBrowsers({ cacheDir });
+    } catch {
+      continue;
+    }
+
+    const matches = installed.filter(
+      (entry) => entry.browser === browserEnum && entry.platform === platform,
     );
+
+    if (matches.length === 0) {
+      continue;
+    }
+
+    // Exact buildId match (latest stable channel version)
+    const exact = matches.find((entry) => entry.buildId === preferredBuildId);
+    if (exact?.executablePath && (await fileExists(exact.executablePath))) {
+      return exact.executablePath;
+    }
+
+    try {
+      const exactPath = computeExecutablePath({
+        browser: browserEnum,
+        buildId: preferredBuildId,
+        cacheDir,
+      });
+      if (await fileExists(exactPath)) {
+        return exactPath;
+      }
+    } catch {
+      // not in this cache dir
+    }
+
+    // Fallback: newest installed version in this cache dir
+    const sorted = [...matches].sort((a, b) => compareBuildIds(a.buildId, b.buildId));
+    for (const entry of sorted) {
+      if (entry.executablePath && (await fileExists(entry.executablePath))) {
+        return entry.executablePath;
+      }
+
+      try {
+        const path = computeExecutablePath({
+          browser: browserEnum,
+          buildId: entry.buildId,
+          cacheDir,
+        });
+        if (await fileExists(path)) {
+          return path;
+        }
+      } catch {
+        continue;
+      }
+    }
   }
 
-  return computeExecutablePath({
-    browser: browserEnum,
-    buildId,
-    cacheDir,
-  });
+  throw new BrowserNotInstalledError(
+    shorthand,
+    `npx @puppeteer/browsers install ${type}@${channel}\n` +
+      `Or set PUPPETEER_CACHE_DIR to your install location.\n` +
+      `Searched cache dirs:\n${searchedDirs.map((d) => `  - ${d}`).join('\n')}`,
+  );
 }
 
 async function resolveFromEnvOrSystem(): Promise<string | undefined> {

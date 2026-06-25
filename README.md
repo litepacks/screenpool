@@ -5,21 +5,12 @@ Lightweight in-process rendering pool for Node.js. Runs Chromium once, keeps a f
 ## Install
 
 ```bash
-npm install screenpool puppeteer-core
+npm install screenpool
 ```
 
-For HTTP server:
+**Requirements:** Node.js 20+ and a Chromium binary (system Chrome/Chromium, or `npx @puppeteer/browsers install chrome@stable`).
 
-```bash
-npm install hono @hono/node-server
-```
-
-For `@puppeteer/browsers` cache resolution:
-
-```bash
-npm install @puppeteer/browsers
-npx @puppeteer/browsers install chrome@stable
-```
+`puppeteer-core` is included — no bundled browser download.
 
 ## Quick start
 
@@ -56,6 +47,8 @@ await pool.stop();
 | Env fallback | `CHROME_PATH`, `PUPPETEER_EXECUTABLE_PATH` |
 
 ## HTTP server
+
+Requires `hono` and `@hono/node-server` (`npm install hono @hono/node-server`).
 
 ```ts
 import { ScreenPool } from "screenpool";
