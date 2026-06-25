@@ -176,6 +176,12 @@ export class ScreenPool extends EventEmitter {
     return this.config;
   }
 
+  /** Current browser process RSS in MB (0 if not started). */
+  async getBrowserMemoryMb(): Promise<number> {
+    if (!this.started) return 0;
+    return this.browserManager.getProcessMemoryMb();
+  }
+
   private enqueueJob<T>(type: JobType, options: T): Promise<RenderResult> {
     const jobId = createJobId();
 

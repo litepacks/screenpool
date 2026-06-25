@@ -73,7 +73,21 @@ screenpool server --port 3000 --pool-size 4 --browser chrome@stable
 
 Output directory: `--output-dir` / `SCREENPOOL_OUTPUT_DIR` (default: `./output`)
 
-## Docker
+Full page screenshot:
+
+```ts
+await pool.screenshot({
+  url: "https://example.com",
+  viewport: { width: 1280, height: 720 },
+  fullPage: true,
+});
+```
+
+```bash
+screenpool screenshot https://example.com --out full.png --full-page --width 1280 --height 720
+```
+
+`fullPage` only applies to `screenshot` / `htmlToImage` (not PDF).
 
 ```bash
 docker compose up -d --build

@@ -86,10 +86,17 @@ export class ScreenWorker {
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      if (this.isCrashError(err)) {
+      const shouldRecycle =
+        this.isCrashError(err) || err instanceof RenderTimeoutError;
+
+      if (shouldRecycle) {
         this.state = 'crashed';
         await this.recycle().catch(() => undefined);
-        job.reject(new WorkerCrashedError(this.id, err.message));
+        job.reject(
+          err instanceof RenderTimeoutError
+            ? err
+            : new WorkerCrashedError(this.id, err.message),
+        );
       } else {
         job.reject(err);
         if (this.page && this.context) {

@@ -42,6 +42,8 @@ export async function resetPageState(
     // ignore
   }
 
+  page.removeAllListeners('request');
+
   try {
     await context.deleteCookie(...(await context.cookies()));
   } catch {
