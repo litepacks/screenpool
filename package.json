@@ -1,0 +1,76 @@
+{
+  "name": "screenpool",
+  "version": "0.1.0",
+  "description": "Lightweight in-process rendering pool for Node.js — screenshots and PDFs via a fixed Chromium worker pool",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./http": {
+      "types": "./dist/http/createScreenPoolServer.d.ts",
+      "import": "./dist/http/createScreenPoolServer.js"
+    }
+  },
+  "bin": {
+    "screenpool": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  },
+  "peerDependencies": {
+    "@hono/node-server": ">=1.0.0",
+    "@puppeteer/browsers": ">=2.0.0",
+    "hono": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@hono/node-server": {
+      "optional": true
+    },
+    "@puppeteer/browsers": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.14.0",
+    "@puppeteer/browsers": "^2.8.0",
+    "@types/node": "^22.13.0",
+    "hono": "^4.7.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  },
+  "keywords": [
+    "puppeteer",
+    "screenshot",
+    "pdf",
+    "chromium",
+    "headless",
+    "render-pool"
+  ],
+  "license": "MIT"
+}
