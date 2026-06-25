@@ -1,6 +1,6 @@
 {
   "name": "screenpool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lightweight in-process rendering pool for Node.js — screenshots and PDFs via a fixed Chromium worker pool",
   "type": "module",
   "main": "./dist/index.js",
@@ -36,29 +36,13 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "puppeteer-core": "^24.0.0"
-  },
-  "peerDependencies": {
-    "@hono/node-server": ">=1.0.0",
-    "@puppeteer/browsers": ">=2.0.0",
-    "hono": ">=4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@hono/node-server": {
-      "optional": true
-    },
-    "@puppeteer/browsers": {
-      "optional": true
-    },
-    "hono": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
     "@hono/node-server": "^1.14.0",
     "@puppeteer/browsers": "^2.8.0",
-    "@types/node": "^22.13.0",
     "hono": "^4.7.0",
+    "puppeteer-core": "^24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
     "tsup": "^8.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",

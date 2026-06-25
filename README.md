@@ -10,7 +10,7 @@ npm install screenpool
 
 **Requirements:** Node.js 20+ and a Chromium binary (system Chrome/Chromium, or `npx @puppeteer/browsers install chrome@stable`).
 
-`puppeteer-core` is included — no bundled browser download.
+`puppeteer-core` and `@puppeteer/browsers` are included — no bundled browser download.
 
 ## Quick start
 
@@ -47,8 +47,6 @@ await pool.stop();
 | Env fallback | `CHROME_PATH`, `PUPPETEER_EXECUTABLE_PATH` |
 
 ## HTTP server
-
-Requires `hono` and `@hono/node-server` (`npm install hono @hono/node-server`).
 
 ```ts
 import { ScreenPool } from "screenpool";

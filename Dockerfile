@@ -29,8 +29,6 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
-RUN npm install hono @hono/node-server
-
 RUN groupadd -r screenpool && useradd -r -g screenpool -G audio,video screenpool \
   && mkdir -p /data && chown -R screenpool:screenpool /app /data
 
