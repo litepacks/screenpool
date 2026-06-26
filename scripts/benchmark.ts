@@ -164,6 +164,10 @@ try {
   memorySamples.push(await sampleMemory(pool, 'after jobs'));
   printSample(memorySamples.at(-1)!);
 
+  const pageStats = await pool.getPageStats();
+  const pageLeak =
+    pageStats.workerPages !== pageStats.expectedPages || pageStats.defaultContextPages > 0;
+
   const totalMs = Date.now() - start;
   latencies.sort((a, b) => a - b);
   const p50 = latencies[Math.floor(latencies.length * 0.5)] ?? 0;
@@ -182,6 +186,13 @@ try {
   console.log(`  browser      ${Math.max(...memorySamples.map((s) => s.browserMb))}MB`);
   console.log(`  node rss     ${Math.max(...memorySamples.map((s) => s.nodeRssMb))}MB`);
   console.log(`  combined     ${Math.max(...memorySamples.map((s) => s.totalMb))}MB`);
+  console.log('─'.repeat(60));
+  console.log('tabs');
+  console.log(`  worker pages ${pageStats.workerPages} (expected ${pageStats.expectedPages})`);
+  console.log(`  total pages  ${pageStats.pages}`);
+  console.log(`  contexts     ${pageStats.contexts}`);
+  console.log(`  default ctx  ${pageStats.defaultContextPages} pages`);
+  console.log(`  leak         ${pageLeak ? 'YES' : 'no'}`);
   console.log('─'.repeat(60));
   console.log('pool stats', pool.stats());
 } catch (err) {
