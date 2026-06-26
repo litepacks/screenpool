@@ -41,7 +41,6 @@ export class ScreenPool extends EventEmitter {
   private startTime = 0;
   private completedJobs = 0;
   private failedJobs = 0;
-  private processing = false;
 
   constructor(config: ScreenPoolConfig) {
     super();
@@ -96,7 +95,7 @@ export class ScreenPool extends EventEmitter {
     this.started = true;
     this.startTime = Date.now();
     this.emit('started');
-    void this.processQueue();
+    this.schedulePump();
   }
 
   /** Graceful shutdown — alias for stop(). */
@@ -214,7 +213,7 @@ export class ScreenPool extends EventEmitter {
       try {
         const { position } = this.jobQueue.enqueue(job);
         this.emit('job:queued', { jobId, type, position });
-        void this.processQueue();
+        this.schedulePump();
       } catch (error) {
         this.emit('queue:overflow', { queuedJobs: this.jobQueue.length });
         reject(error);
@@ -235,26 +234,33 @@ export class ScreenPool extends EventEmitter {
     }
   }
 
-  private async processQueue(): Promise<void> {
-    if (this.processing || !this.workerPool || !this.started) return;
-    this.processing = true;
+  private pumpScheduled = false;
 
-    try {
-      if (
-        this.jobQueue.length > 0 &&
-        this.workerPool.getActiveJobs() < this.config.poolSize
-      ) {
-        const job = this.jobQueue.dequeue();
-        if (!job) return;
+  /** Coalesce pump requests so concurrent enqueues fill all idle workers. */
+  private schedulePump(): void {
+    if (this.pumpScheduled) return;
+    this.pumpScheduled = true;
+    queueMicrotask(() => {
+      this.pumpScheduled = false;
+      this.pumpQueue();
+    });
+  }
 
-        this.emit('job:started', { jobId: job.id, type: job.type });
+  private pumpQueue(): void {
+    if (!this.workerPool || !this.started || this.stopping) return;
 
-        void this.workerPool.runJob(job).finally(() => {
-          void this.processQueue();
-        });
-      }
-    } finally {
-      this.processing = false;
+    while (
+      this.jobQueue.length > 0 &&
+      this.workerPool.getActiveJobs() < this.config.poolSize
+    ) {
+      const job = this.jobQueue.dequeue();
+      if (!job) break;
+
+      this.emit('job:started', { jobId: job.id, type: job.type });
+
+      void this.workerPool.runJob(job).finally(() => {
+        this.schedulePump();
+      });
     }
   }
 

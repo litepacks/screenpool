@@ -45,40 +45,51 @@ describe('ScreenPool queue overflow', () => {
 });
 
 describe('ScreenPool concurrency', () => {
-  it('limits active jobs to poolSize', async () => {
+  function mockStartedPool(poolSize: number, maxQueueSize: number) {
     const pool = new ScreenPool({
       executablePath: process.execPath,
-      poolSize: 2,
-      maxQueueSize: 10,
+      poolSize,
+      maxQueueSize,
     });
 
     let active = 0;
     let maxActive = 0;
+    let dispatched = 0;
 
     (pool as unknown as { started: boolean }).started = true;
     (pool as unknown as {
       workerPool: {
         getActiveJobs: () => number;
-        runJob: (job: { resolve: (v: unknown) => void }) => Promise<void>;
+        runJob: (job: {
+          id: string;
+          resolve: (v: unknown) => void;
+        }) => Promise<void>;
       };
     }).workerPool = {
       getActiveJobs: () => active,
       runJob: async (job) => {
         active++;
+        dispatched++;
         maxActive = Math.max(maxActive, active);
-        await new Promise((r) => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 30));
         active--;
         job.resolve({
           buffer: Buffer.from(''),
           contentType: 'image/png',
           durationMs: 1,
-          jobId: 'x',
+          jobId: job.id,
           type: 'screenshot',
         });
       },
     };
+    (pool as unknown as { healthMonitor: { memoryIsBlocked: boolean } | null }).healthMonitor =
+      null;
 
-    (pool as unknown as { healthMonitor: { memoryIsBlocked: boolean } | null }).healthMonitor = null;
+    return { pool, getMaxActive: () => maxActive, getDispatched: () => dispatched };
+  }
+
+  it('limits active jobs to poolSize', async () => {
+    const { pool, getMaxActive } = mockStartedPool(2, 10);
 
     const jobs = [
       pool.screenshot({ url: 'https://a.com' }),
@@ -87,6 +98,22 @@ describe('ScreenPool concurrency', () => {
     ];
 
     await Promise.all(jobs);
-    expect(maxActive).toBeLessThanOrEqual(2);
+    expect(getMaxActive()).toBeLessThanOrEqual(2);
+  });
+
+  it('dispatches up to poolSize jobs immediately on burst enqueue', async () => {
+    const { pool, getDispatched, getMaxActive } = mockStartedPool(4, 20);
+
+    const jobs = Array.from({ length: 10 }, () =>
+      pool.screenshot({ url: 'https://example.com' }),
+    );
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getDispatched()).toBe(4);
+    expect(getMaxActive()).toBe(4);
+
+    await Promise.all(jobs);
+    expect(getDispatched()).toBe(10);
+    expect(getMaxActive()).toBe(4);
   });
 });

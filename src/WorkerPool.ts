@@ -41,13 +41,19 @@ export class WorkerPool {
   }
 
   private waitForIdleWorker(): Promise<ScreenWorker> {
-    const idle = this.workers.find((w) => w.isIdle());
+    const idle = this.workers.find((w) => w.tryAcquire());
     if (idle) {
       return Promise.resolve(idle);
     }
 
     return new Promise<ScreenWorker>((resolve) => {
-      this.waitQueue.push(resolve);
+      this.waitQueue.push((worker) => {
+        if (!worker.tryAcquire()) {
+          void this.waitForIdleWorker().then(resolve);
+          return;
+        }
+        resolve(worker);
+      });
     });
   }
 

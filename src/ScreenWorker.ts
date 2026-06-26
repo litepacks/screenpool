@@ -205,4 +205,11 @@ export class ScreenWorker {
   isIdle(): boolean {
     return this.state === 'idle';
   }
+
+  /** Reserve worker synchronously before async run() starts. */
+  tryAcquire(): boolean {
+    if (this.state !== 'idle') return false;
+    this.state = 'busy';
+    return true;
+  }
 }

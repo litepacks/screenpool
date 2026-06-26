@@ -2,10 +2,10 @@ import { ScreenPool } from '../src/index.js';
 import type { ScreenPoolConfig } from '../src/index.js';
 import { resolveBrowserExecutable } from '../src/utils/resolveBrowserExecutable.js';
 
-const ITERATIONS = Number(process.env.BENCHMARK_N ?? 10);
+const ITERATIONS = Number(process.env.BENCHMARK_N ?? 50);
 const POOL_SIZE = Number(process.env.BENCHMARK_POOL_SIZE ?? 4);
 /** batched | all | sequential */
-const MODE = process.env.BENCHMARK_MODE ?? 'batched';
+const MODE = process.env.BENCHMARK_MODE ?? 'all';
 const USE_URL = process.env.BENCHMARK_URL === '1';
 
 interface MemorySample {
