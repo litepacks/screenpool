@@ -1,6 +1,6 @@
 {
   "name": "screenpool",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Lightweight in-process rendering pool for Node.js — screenshots and PDFs via a fixed Chromium worker pool",
   "type": "module",
   "main": "./dist/index.js",

@@ -224,6 +224,9 @@ export const DEFAULT_CHROMIUM_ARGS = [
   '--metrics-recording-only',
   '--mute-audio',
   '--hide-scrollbars',
+  '--disk-cache-size=0',
+  '--media-cache-size=0',
+  '--aggressive-cache-discard',
 ] as const;
 
 export const DEFAULT_POOL_SIZE = 4;

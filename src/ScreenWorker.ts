@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, HTTPRequest, Page } from 'puppeteer-core';
+import type { Browser, BrowserContext, Page } from 'puppeteer-core';
 import type {
   JobType,
   PdfOptions,
@@ -24,7 +24,6 @@ export class ScreenWorker {
   private page: Page | null = null;
   private state: WorkerState = 'idle';
   private jobsCompleted = 0;
-  private requestHandler: ((req: HTTPRequest) => void) | null = null;
 
   constructor(
     readonly id: number,
@@ -41,14 +40,28 @@ export class ScreenWorker {
     await this.createContextAndPage();
   }
 
-  private async createContextAndPage(): Promise<void> {
+  private async destroyContext(): Promise<void> {
+    if (this.page) {
+      try {
+        await this.page.close({ runBeforeUnload: false });
+      } catch {
+        // ignore
+      }
+      this.page = null;
+    }
+
     if (this.context) {
       try {
         await this.context.close();
       } catch {
         // ignore
       }
+      this.context = null;
     }
+  }
+
+  private async createContextAndPage(): Promise<void> {
+    await this.destroyContext();
 
     this.context = await this.browser.createBrowserContext();
     this.page = await this.context.newPage();
@@ -177,22 +190,7 @@ export class ScreenWorker {
 
   /** Close worker resources. */
   async close(): Promise<void> {
-    if (this.page) {
-      try {
-        await this.page.close();
-      } catch {
-        // ignore
-      }
-      this.page = null;
-    }
-    if (this.context) {
-      try {
-        await this.context.close();
-      } catch {
-        // ignore
-      }
-      this.context = null;
-    }
+    await this.destroyContext();
     this.state = 'idle';
   }
 

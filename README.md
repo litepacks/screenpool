@@ -87,6 +87,8 @@ screenpool screenshot https://example.com --out full.png --full-page --width 128
 
 `fullPage` only applies to `screenshot` / `htmlToImage` (not PDF).
 
+## Docker
+
 ```bash
 docker compose up -d --build
 curl http://localhost:3000/health
@@ -117,6 +119,42 @@ memory: {
   v8HeapMb: 256,      // Chromium V8 heap launch arg
 }
 ```
+
+## Memory efficiency
+
+Screenpool is designed to keep Chromium memory bounded — not grow with every render.
+
+**Fixed tab budget.** One browser process, `poolSize` workers, each worker holds exactly one tab in an isolated `BrowserContext`. No per-job tab creation; concurrent load queues instead of opening more tabs.
+
+**Cleanup after every job.** `resetPageState` runs when a job succeeds:
+
+- navigates to `about:blank` (releases DOM from URL/HTML renders)
+- clears cookies, request listeners, and request interception
+- resets extra HTTP headers, user agent, and media features (e.g. dark mode)
+- restores the default viewport
+
+**Hard reset on failure.** Crash or timeout recycles the whole worker context (`page.close()` → `context.close()` → new context + tab).
+
+**Startup & shutdown.** Chromium’s default blank tab is closed on launch. `pool.stop()` closes every worker page and context.
+
+**Chromium launch args** (defaults, overridable via `launchArgs`):
+
+- `--disk-cache-size=0`, `--media-cache-size=0`, `--aggressive-cache-discard`
+
+**Optional periodic recycle:**
+
+```ts
+{ workerRestartAfterJobs: 500 }  // default; set 0 to disable
+```
+
+**Leak checks:**
+
+```ts
+const stats = await pool.getPageStats();
+// workerPages should equal poolSize; defaultContextPages should stay 0
+```
+
+`npm run benchmark` prints a `tabs` section with the same checks after a load run.
 
 ## Errors
 

@@ -25,6 +25,7 @@ import {
   validateScreenshotOptions,
 } from './security/SecurityGuard.js';
 import { createJobId } from './utils/uuid.js';
+import { countBrowserPages, type BrowserPageStats } from './utils/browserPages.js';
 
 /**
  * In-process Chromium rendering pool with queued jobs and fixed concurrency.
@@ -179,6 +180,22 @@ export class ScreenPool extends EventEmitter {
   async getBrowserMemoryMb(): Promise<number> {
     if (!this.started) return 0;
     return this.browserManager.getProcessMemoryMb();
+  }
+
+  /** Open Chromium contexts/pages (for leak checks). */
+  async getPageStats(): Promise<BrowserPageStats & { expectedPages: number }> {
+    if (!this.started) {
+      return {
+        contexts: 0,
+        pages: 0,
+        workerPages: 0,
+        defaultContextPages: 0,
+        expectedPages: this.config.poolSize,
+      };
+    }
+
+    const stats = await countBrowserPages(this.browserManager.getBrowser());
+    return { ...stats, expectedPages: this.config.poolSize };
   }
 
   private enqueueJob<T>(type: JobType, options: T): Promise<RenderResult> {

@@ -36,16 +36,40 @@ export async function resetPageState(
   context: BrowserContext,
   defaultViewport: ViewportConfig,
 ): Promise<void> {
+  page.removeAllListeners('request');
+
   try {
     await page.setRequestInterception(false);
   } catch {
     // ignore
   }
 
-  page.removeAllListeners('request');
+  try {
+    const cookies = await context.cookies();
+    if (cookies.length > 0) {
+      await context.deleteCookie(...cookies);
+    }
+  } catch {
+    // ignore
+  }
 
   try {
-    await context.deleteCookie(...(await context.cookies()));
+    await page.setExtraHTTPHeaders({});
+  } catch {
+    // ignore
+  }
+
+  try {
+    const browser = page.browser();
+    if (browser) {
+      await page.setUserAgent(await browser.userAgent());
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    await page.emulateMediaFeatures([]);
   } catch {
     // ignore
   }

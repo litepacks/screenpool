@@ -30,6 +30,8 @@ export class BrowserManager {
       args,
     });
 
+    await this.closeDefaultContextPages(this.browser);
+
     this.browser.on('disconnected', () => {
       this.browser = null;
       this.disconnectHandler?.();
@@ -83,5 +85,13 @@ export class BrowserManager {
 
   get isConnected(): boolean {
     return Boolean(this.browser?.connected);
+  }
+
+  /** Chromium opens a blank tab in the default context — close it to save memory. */
+  private async closeDefaultContextPages(browser: Browser): Promise<void> {
+    const pages = await browser.defaultBrowserContext().pages();
+    await Promise.all(
+      pages.map((page) => page.close({ runBeforeUnload: false }).catch(() => undefined)),
+    );
   }
 }
