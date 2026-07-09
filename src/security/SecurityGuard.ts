@@ -1,4 +1,4 @@
-import type { ResolvedScreenPoolConfig, ScreenshotOptions, PdfOptions } from '../types.js';
+import type { ResolvedScreenPoolConfig, ScreenshotOptions, PdfOptions, ExtractOptions } from '../types.js';
 import { InvalidRenderInputError, SecurityBlockedUrlError } from '../errors.js';
 
 type RenderInput = Pick<ScreenshotOptions | PdfOptions, 'url' | 'html'>;
@@ -142,6 +142,20 @@ export function validateScreenshotOptions(
 
 /** Validate PDF options including URL security. */
 export function validatePdfOptions(options: PdfOptions, config: ResolvedScreenPoolConfig): void {
+  validateRenderInput(options);
+  if (options.url) {
+    validateUrl(options.url, config);
+  }
+}
+
+/** Validate extraction options. */
+export function validateExtractOptions(
+  options: ExtractOptions,
+  config: ResolvedScreenPoolConfig,
+): void {
+  if (!options.rules) {
+    throw new InvalidRenderInputError('rules is required for extraction.');
+  }
   validateRenderInput(options);
   if (options.url) {
     validateUrl(options.url, config);

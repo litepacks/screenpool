@@ -8,6 +8,8 @@ import type {
   ResolvedScreenPoolConfig,
   ScreenPoolConfig,
   ScreenshotOptions,
+  ExtractOptions,
+  ExtractResult,
 } from './types.js';
 import { resolveConfig } from './types.js';
 import {
@@ -23,6 +25,7 @@ import { HealthMonitor } from './HealthMonitor.js';
 import {
   validatePdfOptions,
   validateScreenshotOptions,
+  validateExtractOptions,
 } from './security/SecurityGuard.js';
 import { createJobId } from './utils/uuid.js';
 import { countBrowserPages, type BrowserPageStats } from './utils/browserPages.js';
@@ -150,6 +153,16 @@ export class ScreenPool extends EventEmitter {
     }
     validatePdfOptions(options, this.config);
     return this.enqueueJob('htmlToPdf', options);
+  }
+
+  /** Extract structured data using Pipsel rules. */
+  async extract(options: ExtractOptions): Promise<ExtractResult> {
+    validateExtractOptions(options, this.config);
+    const result = await this.enqueueJob('extract', options);
+    return {
+      ...result,
+      data: JSON.parse(result.buffer.toString('utf8')),
+    };
   }
 
   /** Pool statistics snapshot. */

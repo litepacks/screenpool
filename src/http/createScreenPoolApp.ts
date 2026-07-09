@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { ScreenPool } from '../ScreenPool.js';
-import type { PdfOptions, ScreenshotOptions } from '../types.js';
+import type { PdfOptions, ScreenshotOptions, ExtractOptions } from '../types.js';
 import { handleHttpError } from './errorHandler.js';
 import { bodyLimit } from './middleware/bodyLimit.js';
 
@@ -57,6 +57,14 @@ export function createScreenPoolApp(
     const result = await pool.htmlToPdf(body);
     return new Response(result.buffer, {
       headers: { 'Content-Type': result.contentType, 'X-Job-Id': result.jobId },
+    });
+  });
+
+  app.post('/extract', async (c) => {
+    const body = await parseJson<ExtractOptions>(c);
+    const result = await pool.extract(body);
+    return c.json(result.data, 200, {
+      'X-Job-Id': result.jobId,
     });
   });
 

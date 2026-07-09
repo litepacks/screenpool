@@ -16,6 +16,8 @@ export type {
   WaitUntil,
   ScreenshotFormat,
   PdfFormat,
+  ExtractOptions,
+  ExtractResult,
 } from './types.js';
 
 export {

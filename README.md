@@ -59,7 +59,7 @@ const { listen, close } = createScreenPoolServer(pool, { port: 3000 });
 await listen();
 ```
 
-Endpoints: `POST /screenshot`, `POST /pdf`, `POST /html-to-image`, `POST /html-to-pdf`, `GET /health`, `GET /stats`
+Endpoints: `POST /screenshot`, `POST /pdf`, `POST /html-to-image`, `POST /html-to-pdf`, `POST /extract`, `GET /health`, `GET /stats`
 
 ## CLI
 
@@ -86,6 +86,73 @@ screenpool screenshot https://example.com --out full.png --full-page --width 128
 ```
 
 `fullPage` only applies to `screenshot` / `htmlToImage` (not PDF).
+
+## Data Extraction (Pipsel DSL)
+
+Screenpool supports structured data extraction from fully rendered pages (with active JavaScript execution and hydration) using [Pipsel DSL](https://litepacks.github.io/pipsel/) rules.
+
+### Programmatic API
+
+```ts
+const result = await pool.extract({
+  url: "https://example.com",
+  rules: `
+    title: "h1" | text | trim
+    products[]: ".product-card" {
+      name: ".title" | text | trim
+      price: ".price" | text | trim | float
+    }
+  `,
+});
+
+console.log(result.data);
+// => { title: "Example Domain", products: [...] }
+```
+
+### Hacker News Example
+
+Here is a real-world example extracting front page stories from Hacker News:
+
+```ts
+const hnResult = await pool.extract({
+  url: "https://news.ycombinator.com",
+  rules: `
+    stories[]: "tr.athing" {
+      id: @self | attr("id") | int
+      title: "span.titleline > a" | text
+      url: "span.titleline > a" | attr("href")
+    }
+  `,
+});
+
+console.log(hnResult.data.stories);
+/* =>
+[
+  { id: 40912345, title: "Show HN: Screenpool", url: "https://github.com/..." },
+  ...
+]
+*/
+```
+
+### HTTP Endpoint
+
+`POST /extract`
+
+```bash
+curl -X POST http://localhost:3000/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "rules": "title: \"h1\" | text | trim"
+  }'
+```
+
+### CLI
+
+```bash
+screenpool extract https://example.com --rules 'title: "h1" | text | trim'
+screenpool extract https://example.com --rules-file ./rules.psl --out result.json
+```
 
 ## Docker
 

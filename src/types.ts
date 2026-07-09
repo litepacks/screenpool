@@ -1,5 +1,5 @@
 /** Supported render job types. */
-export type JobType = 'screenshot' | 'pdf' | 'htmlToImage' | 'htmlToPdf';
+export type JobType = 'screenshot' | 'pdf' | 'htmlToImage' | 'htmlToPdf' | 'extract';
 
 export type WaitUntil = 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2';
 
@@ -149,6 +149,26 @@ export interface PdfOptions {
   waitForTimeout?: number;
   injectCSS?: string;
   injectJS?: string;
+}
+
+export interface ExtractOptions {
+  url?: string;
+  html?: string;
+  rules: string;
+  viewport?: ViewportConfig;
+  userAgent?: string;
+  headers?: Record<string, string>;
+  cookies?: CookieConfig[];
+  waitUntil?: WaitUntil;
+  waitForSelector?: string;
+  waitForTimeout?: number;
+  injectCSS?: string;
+  injectJS?: string;
+  blockResources?: BlockResourceType[];
+}
+
+export interface ExtractResult extends RenderResult {
+  data: any;
 }
 
 /** Result returned from render methods. */

@@ -13,6 +13,7 @@ import type { PoolStats, RenderResult } from '../src/types.js';
 function mockPool(overrides: Partial<{
   stats: PoolStats;
   screenshot: () => Promise<RenderResult>;
+  extract: () => Promise<any>;
 }> = {}) {
   const defaultStats: PoolStats = {
     started: true,
@@ -35,6 +36,7 @@ function mockPool(overrides: Partial<{
     pdf: vi.fn(),
     htmlToImage: vi.fn(),
     htmlToPdf: vi.fn(),
+    extract: overrides.extract ?? vi.fn(),
   } as unknown as import('../src/ScreenPool.js').ScreenPool;
 }
 
@@ -62,5 +64,24 @@ describe('HTTP adapter', () => {
     expect(errorToStatus(new QueueOverflowError(10, 10))).toBe(429);
     expect(errorToStatus(new ScreenPoolNotStartedError())).toBe(503);
     expect(errorToStatus(new RenderTimeoutError('id', 1000))).toBe(504);
+  });
+
+  it('POST /extract returns JSON data', async () => {
+    const mockExtract = vi.fn(async () => ({
+      data: { title: 'Test' },
+      jobId: 'job-123',
+    }));
+    const pool = mockPool({ extract: mockExtract } as any);
+    const app = createScreenPoolApp(pool);
+    const res = await app.request('http://localhost/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com', rules: 'title: "h1" | text' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-Job-Id')).toBe('job-123');
+    const body = await res.json();
+    expect(body).toEqual({ title: 'Test' });
   });
 });

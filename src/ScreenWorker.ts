@@ -7,6 +7,7 @@ import type {
   ScreenshotOptions,
   ViewportConfig,
   WorkerState,
+  ExtractOptions,
 } from './types.js';
 import {
   NavigationError,
@@ -17,6 +18,7 @@ import { renderScreenshot } from './renderers/ScreenshotRenderer.js';
 import { renderPdf } from './renderers/PdfRenderer.js';
 import { renderHtmlToImage } from './renderers/HtmlToImageRenderer.js';
 import { renderHtmlToPdf } from './renderers/HtmlToPdfRenderer.js';
+import { renderExtract } from './renderers/ExtractRenderer.js';
 import { resetPageState } from './renderers/PageSetup.js';
 
 export class ScreenWorker {
@@ -139,6 +141,8 @@ export class ScreenWorker {
         return renderHtmlToImage(this.page, job.options as ScreenshotOptions, job.id, this.config);
       case 'htmlToPdf':
         return renderHtmlToPdf(this.page, job.options as PdfOptions, job.id, this.config);
+      case 'extract':
+        return renderExtract(this.page, job.options as ExtractOptions, job.id, this.config);
       default:
         throw new NavigationError(`Unknown job type: ${job.type}`);
     }
