@@ -118,7 +118,7 @@ const hnResult = await pool.extract({
   url: "https://news.ycombinator.com",
   rules: `
     stories[]: "tr.athing" {
-      id: @self | attr("id") | int
+      id: self | attr("id") | int
       title: "span.titleline > a" | text
       url: "span.titleline > a" | attr("href")
     }
