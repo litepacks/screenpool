@@ -4,7 +4,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { ScreenPool } from './ScreenPool.js';
 import type { ScreenPoolConfig, BrowserShorthand } from './types.js';
-import { DEFAULT_OUTPUT_DIR } from './types.js';
+import { DEFAULT_OUTPUT_DIR, resolveConfig } from './types.js';
 import { ensureOutputDir, formatToExt, resolveOutputPath } from './utils/resolveOutputPath.js';
 import { isScreenPoolError } from './errors.js';
 
@@ -34,62 +34,140 @@ function buildPoolConfig(argv: any): ScreenPoolConfig {
   return config;
 }
 
+async function tryRequestDaemon(
+  command: string,
+  payload: any,
+  argv: any,
+): Promise<any | null> {
+  if (argv.local) {
+    return null;
+  }
+
+  const port = argv.port ?? 3000;
+  const host = argv.host ?? '127.0.0.1';
+  const url = `http://${host}:${port}`;
+
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 150);
+    const healthRes = await fetch(`${url}/health`, { signal: controller.signal });
+    clearTimeout(id);
+    if (!healthRes.ok) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  const path = command === 'screenshot'
+    ? '/screenshot'
+    : command === 'pdf'
+    ? '/pdf'
+    : command === 'extract'
+    ? '/extract'
+    : null;
+
+  if (!path) return null;
+
+  const res = await fetch(`${url}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errBody = (await res.json().catch(() => ({ message: res.statusText }))) as any;
+    throw new Error(`Daemon error: ${errBody.message || res.statusText}`);
+  }
+
+  if (command === 'extract') {
+    const data = await res.json();
+    return { data, jobId: res.headers.get('x-job-id') || 'daemon-job' };
+  } else {
+    const arrayBuffer = await res.arrayBuffer();
+    return {
+      buffer: Buffer.from(arrayBuffer),
+      jobId: res.headers.get('x-job-id') || 'daemon-job',
+      contentType: res.headers.get('content-type') || '',
+    };
+  }
+}
+
 async function writeResult(
-  pool: ScreenPool,
+  outputDir: string,
   result: { buffer: Buffer; jobId: string; contentType: string },
   argv: any,
   ext: string,
 ): Promise<void> {
-  const config = pool.resolvedConfig;
   const out = argv.out;
   const target = resolveOutputPath({
-    outputDir: config.storage.outputDir,
+    outputDir,
     out,
     jobId: result.jobId,
     ext,
   });
 
-  await ensureOutputDir(config.storage.outputDir);
+  await ensureOutputDir(outputDir);
   await writeFile(target, result.buffer);
   console.log(target);
 }
 
 async function runScreenshot(url: string, argv: any): Promise<void> {
+  const format = argv.format ?? 'png';
+  const payload = {
+    url,
+    viewport: {
+      width: argv.width ?? 1280,
+      height: argv.height ?? 720,
+    },
+    format,
+    quality: argv.quality,
+    fullPage: argv['full-page'],
+  };
+
+  const outputDir = resolveConfig(buildPoolConfig(argv)).storage.outputDir;
+
+  const daemonRes = await tryRequestDaemon('screenshot', payload, argv);
+  if (daemonRes) {
+    await writeResult(outputDir, daemonRes, argv, formatToExt(format));
+    return;
+  }
+
   const pool = new ScreenPool(buildPoolConfig(argv));
   await pool.start();
 
   try {
-    const format = argv.format ?? 'png';
-    const result = await pool.screenshot({
-      url,
-      viewport: {
-        width: argv.width ?? 1280,
-        height: argv.height ?? 720,
-      },
-      format,
-      quality: argv.quality,
-      fullPage: argv['full-page'],
-    });
-    await writeResult(pool, result, argv, formatToExt(format));
+    const result = await pool.screenshot(payload);
+    await writeResult(outputDir, result, argv, formatToExt(format));
   } finally {
     await pool.stop();
   }
 }
 
 async function runPdf(url: string, argv: any): Promise<void> {
+  const payload = {
+    url,
+    viewport: {
+      width: argv.width ?? 1280,
+      height: argv.height ?? 720,
+    },
+    pdf: { printBackground: true },
+  };
+
+  const outputDir = resolveConfig(buildPoolConfig(argv)).storage.outputDir;
+
+  const daemonRes = await tryRequestDaemon('pdf', payload, argv);
+  if (daemonRes) {
+    await writeResult(outputDir, daemonRes, argv, 'pdf');
+    return;
+  }
+
   const pool = new ScreenPool(buildPoolConfig(argv));
   await pool.start();
 
   try {
-    const result = await pool.pdf({
-      url,
-      viewport: {
-        width: argv.width ?? 1280,
-        height: argv.height ?? 720,
-      },
-      pdf: { printBackground: true },
-    });
-    await writeResult(pool, result, argv, 'pdf');
+    const result = await pool.pdf(payload);
+    await writeResult(outputDir, result, argv, 'pdf');
   } finally {
     await pool.stop();
   }
@@ -109,22 +187,37 @@ async function runExtract(url: string, argv: any): Promise<void> {
     process.exit(1);
   }
 
+  const payload = {
+    url,
+    rules,
+    viewport: {
+      width: argv.width ?? 1280,
+      height: argv.height ?? 720,
+    },
+  };
+
+  const outputDir = resolveConfig(buildPoolConfig(argv)).storage.outputDir;
+
+  const daemonRes = await tryRequestDaemon('extract', payload, argv);
+  if (daemonRes) {
+    const out = argv.out;
+    if (out) {
+      await writeResult(outputDir, daemonRes, argv, 'json');
+    } else {
+      console.log(JSON.stringify(daemonRes.data, null, 2));
+    }
+    return;
+  }
+
   const pool = new ScreenPool(buildPoolConfig(argv));
   await pool.start();
 
   try {
-    const result = await pool.extract({
-      url,
-      rules,
-      viewport: {
-        width: argv.width ?? 1280,
-        height: argv.height ?? 720,
-      },
-    });
+    const result = await pool.extract(payload);
 
     const out = argv.out;
     if (out) {
-      await writeResult(pool, result, argv, 'json');
+      await writeResult(outputDir, result, argv, 'json');
     } else {
       console.log(JSON.stringify(result.data, null, 2));
     }
@@ -200,6 +293,10 @@ async function main(): Promise<void> {
       alias: 'O',
       type: 'string',
       describe: 'Output directory (default: ./output)',
+    })
+    .option('local', {
+      type: 'boolean',
+      describe: 'Force local execution in-process (bypass any running local daemon)',
     })
     .command(
       'screenshot <url>',
