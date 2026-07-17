@@ -21,16 +21,26 @@ export class BrowserManager {
       return this.browser;
     }
 
-    this.executablePath = await resolveBrowserExecutable(this.config);
-    const args = buildLaunchArgs(this.config);
+    if (this.config.browserInstance) {
+      this.browser = this.config.browserInstance;
+    } else if (this.config.browserWSEndpoint || this.config.browserURL) {
+      this.browser = await puppeteer.connect({
+        browserWSEndpoint: this.config.browserWSEndpoint,
+        browserURL: this.config.browserURL,
+        defaultViewport: null,
+      });
+    } else {
+      this.executablePath = await resolveBrowserExecutable(this.config);
+      const args = buildLaunchArgs(this.config);
 
-    this.browser = await puppeteer.launch({
-      executablePath: this.executablePath,
-      headless: true,
-      args,
-    });
+      this.browser = await puppeteer.launch({
+        executablePath: this.executablePath,
+        headless: true,
+        args,
+      });
 
-    await this.closeDefaultContextPages(this.browser);
+      await this.closeDefaultContextPages(this.browser);
+    }
 
     this.browser.on('disconnected', () => {
       this.browser = null;
@@ -75,7 +85,13 @@ export class BrowserManager {
   async close(): Promise<void> {
     if (this.browser) {
       try {
-        await this.browser.close();
+        if (this.config.browserInstance) {
+          // Do not close or disconnect a user-provided browser instance
+        } else if (this.config.browserWSEndpoint || this.config.browserURL) {
+          this.browser.disconnect();
+        } else {
+          await this.browser.close();
+        }
       } catch {
         // ignore close errors on crashed browser
       }

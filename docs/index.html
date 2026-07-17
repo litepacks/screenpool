@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="Screenpool — lightweight in-process rendering pool for Node.js: screenshots, PDFs, structured data extraction, remote-debugging, HTTP server, CLI. Single-page reference." />
+  <title>Screenpool — documentation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    pre { tab-size: 2; margin: 0; }
+    pre code { padding: 0; background: transparent; }
+    code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.9em; }
+    .doc-section { scroll-margin-top: 2rem; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #e7e5e4; padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: #f5f5f4; font-weight: 600; }
+    .dark th, .dark td { border-color: #334155; }
+    .dark th { background: #1e293b; }
+    .ascii { font-family: ui-monospace, monospace; font-size: 0.65rem; line-height: 1.35; overflow-x: auto; }
+    @media (min-width: 640px) { .ascii { font-size: 0.72rem; } }
+    @media (min-width: 1024px) { .ascii { font-size: 0.75rem; } }
+  </style>
+</head>
+<body class="bg-stone-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100 transition-colors">
+  <div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="flex items-center justify-between mb-10 gap-4 flex-wrap">
+      <nav class="flex flex-wrap gap-x-3 gap-y-2 text-sm leading-snug" aria-label="Page sections">
+        <a href="#overview" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Overview</a>
+        <a href="#features" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Features</a>
+        <a href="#installation" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Install</a>
+        <a href="#quick-start" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Quick start</a>
+        <a href="#browser-options" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Browser Options</a>
+        <a href="#api-reference" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">API Reference</a>
+        <a href="#security" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Security (SSRF)</a>
+        <a href="#http-server" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">HTTP Server</a>
+        <a href="#cli" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">CLI</a>
+        <a href="#architecture" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Architecture</a>
+        <a href="#development" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Development</a>
+      </nav>
+      <button id="theme-toggle" type="button" class="p-2 rounded-lg text-slate-500 hover:bg-stone-200 hover:text-cyan-800 dark:hover:bg-slate-800 dark:text-slate-400 dark:hover:text-cyan-300 shrink-0" aria-label="Toggle dark mode">
+        <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      </button>
+    </div>
+
+    <header class="mb-14 flex items-start gap-5">
+      <div class="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/25 via-emerald-500/15 to-slate-800/20 dark:from-cyan-400/20 dark:via-emerald-500/10 dark:to-slate-900/40 border border-cyan-500/35 dark:border-emerald-500/25 flex items-center justify-center shadow-md shadow-cyan-900/5 dark:shadow-emerald-900/20" aria-hidden="true">
+        <svg class="w-[2.6rem] h-[2.6rem] text-cyan-900 dark:text-cyan-300" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M4 10h16M9 4v16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="14.5" cy="15" r="1.5" fill="currentColor"/>
+          <path d="M12 15h.01M17 15h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-semibold uppercase tracking-wide text-cyan-800 dark:text-cyan-400 mb-1">In-process Chromium rendering pool · Node.js</p>
+        <h1 class="text-4xl font-bold text-slate-900 dark:text-white tracking-tight">Screenpool</h1>
+        <p class="mt-4 text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-prose">
+          A lightweight in-process rendering pool for Node.js. Runs Chromium once, maintains a fixed set of isolated worker tabs, queues render jobs, and returns screenshots, PDFs, or parsed structured data.
+        </p>
+        <p class="mt-2 text-sm text-slate-500 dark:text-slate-500">
+          Full reference (mirrors README) — open this file locally or from the repo. Requires <strong class="text-slate-700 dark:text-slate-400">Node.js 20+</strong>.
+        </p>
+      </div>
+    </header>
+
+    <section id="overview" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Why?</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
+        Spawning and killing Chromium processes on every render job creates high CPU overhead and memory leaks. Screenpool launches Chromium once and allocates concurrent jobs to a fixed pool of isolated context tabs, recycling contexts on crash/timeout and blanking pages after runs to guarantee bounded resource usage.
+      </p>
+      <div class="grid sm:grid-cols-2 gap-3 text-sm">
+        <div class="rounded-xl border border-stone-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-4">
+          <h3 class="font-semibold text-slate-800 dark:text-slate-200 mb-2">Ideal when…</h3>
+          <ul class="list-disc pl-4 text-slate-600 dark:text-slate-400 space-y-1">
+            <li>You need bounded memory and CPU resource limits</li>
+            <li>Rendering hundreds of screenshots or PDFs concurrently</li>
+            <li>Scraping and extracting structured data with full JS execution</li>
+            <li>Integrating with existing browsers via remote-debugging</li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-stone-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-4">
+          <h3 class="font-semibold text-slate-800 dark:text-slate-200 mb-2">Core mechanics</h3>
+          <ul class="list-disc pl-4 text-slate-600 dark:text-slate-400 space-y-1">
+            <li>Fixed-size BrowserContext and tab workers</li>
+            <li>Navigation blanking and cookie clearance</li>
+            <li>Memory pressure checks with auto-recycling</li>
+            <li>Built-in local network SSRF security checks</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Features</h2>
+      <ul class="list-disc pl-5 text-slate-600 dark:text-slate-400 space-y-3">
+        <li><strong class="text-slate-800 dark:text-slate-200">Fixed tab budget</strong> — Launches a single browser process and keeps context tabs open. No per-job process creation.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">Reset after jobs</strong> — Clears cookies, local headers, viewport overrides, custom styles, and navigates to <code>about:blank</code> to free up DOM nodes.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">Remote Debugging & Connection</strong> — Connects to existing Chrome/Chromium instances via WebSocket (<code>browserWSEndpoint</code>), HTTP URL (<code>browserURL</code>), or passes an existing Puppeteer <code>Browser</code> directly.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">Data Extraction</strong> — Supports structured data extraction using Pipsel DSL rules.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">SSRF Guard</strong> — Disallows local networks, loopbacks, and metadata IPs by default.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">V8 Heap & RSS limit</strong> — Monitors worker RSS memory and rejects jobs or recycles workers when limits are exceeded.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">HTTP Daemon & CLI UI</strong> — Includes a Hono-powered HTTP server and an admin panel GUI.</li>
+      </ul>
+    </section>
+
+    <section id="installation" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Installation</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-3">Requires <strong class="text-slate-800 dark:text-slate-200">Node.js 20+</strong>.</p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-4"><code class="language-bash">npm install screenpool</code></pre>
+      <p class="text-slate-500 text-xs">Note: You must have a Chromium executable available on your system, or install it using <code>npx @puppeteer/browsers install chrome@stable</code>.</p>
+    </section>
+
+    <section id="quick-start" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Quick start</h2>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto"><code class="language-typescript">import { ScreenPool } from 'screenpool';
+
+// Create a pool
+const pool = new ScreenPool({
+  browser: 'chrome@stable',
+  poolSize: 4,
+  memory: { limitMb: 512 }
+});
+
+await pool.start();
+
+// Take a screenshot
+const result = await pool.screenshot({
+  url: 'https://example.com',
+  viewport: { width: 1200, height: 630 },
+  format: 'webp',
+  quality: 80
+});
+
+// Do something with the buffer
+console.log(result.buffer); // => <Buffer ...>
+console.log(result.contentType); // => 'image/webp'
+
+// Stop the pool gracefully
+await pool.stop();</code></pre>
+    </section>
+
+    <section id="browser-options" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Browser Connection Options</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4">
+        Screenpool supports several ways to resolve or connect to a browser. Define these in the top-level configuration options:
+      </p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr><th>Method</th><th>Description</th><th>Example Config</th></tr></thead>
+          <tbody class="text-slate-600 dark:text-slate-400">
+            <tr>
+              <td><code>executablePath</code></td>
+              <td>System file path to a Chromium/Chrome binary.</td>
+              <td><code>{ executablePath: '/usr/bin/chromium' }</code></td>
+            </tr>
+            <tr>
+              <td><code>browser</code></td>
+              <td>Browser shorthand string or configuration resolved via @puppeteer/browsers cache.</td>
+              <td><code>{ browser: 'chrome@stable' }</code></td>
+            </tr>
+            <tr>
+              <td><code>browserWSEndpoint</code></td>
+              <td>Connects to an already running browser using its WebSocket debugging endpoint URL.</td>
+              <td><code>{ browserWSEndpoint: 'ws://127.0.0.1:9222/devtools/browser/...' }</code></td>
+            </tr>
+            <tr>
+              <td><code>browserURL</code></td>
+              <td>Connects to an already running browser using its local debugging port URL.</td>
+              <td><code>{ browserURL: 'http://localhost:9222' }</code></td>
+            </tr>
+            <tr>
+              <td><code>browserInstance</code></td>
+              <td>Directly pass an existing Puppeteer <code>Browser</code> instance. Lifecycle is managed by user.</td>
+              <td><code>{ browserInstance: existingBrowser }</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="api-reference" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">API Reference</h2>
+      
+      <h3 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-3"><code>new ScreenPool(config)</code></h3>
+      <div class="overflow-x-auto mb-6">
+        <table class="w-full text-sm">
+          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody class="text-slate-600 dark:text-slate-400">
+            <tr><td><code>poolSize</code></td><td><code>4</code></td><td>Number of concurrent worker pages/tabs to maintain.</td></tr>
+            <tr><td><code>maxQueueSize</code></td><td><code>100</code></td><td>Maximum number of pending render jobs to queue before failing with QueueOverflow.</td></tr>
+            <tr><td><code>jobTimeout</code></td><td><code>15000</code></td><td>Timeout in ms for single render jobs.</td></tr>
+            <tr><td><code>workerRestartAfterJobs</code></td><td><code>500</code></td><td>Recycle worker tab/context after this many completed jobs (0 disables).</td></tr>
+            <tr><td><code>allowLocalhost</code></td><td><code>false</code></td><td>Whether to allow renders from localhost URLs.</td></tr>
+            <tr><td><code>allowPrivateNetworks</code></td><td><code>false</code></td><td>Whether to allow rendering URLs resolving to private subnets.</td></tr>
+            <tr><td><code>allowFileProtocol</code></td><td><code>false</code></td><td>Whether to allow local file paths (<code>file://</code>).</td></tr>
+            <tr><td><code>defaultViewport</code></td><td><code>{ width: 1280, height: 720 }</code></td><td>Default viewport settings applied to worker pages on start/recycle.</td></tr>
+            <tr><td><code>memory.limitMb</code></td><td>—</td><td>Upper limit on browser RSS usage in MB. Blocks jobs if exceeded.</td></tr>
+            <tr><td><code>memory.v8HeapMb</code></td><td>—</td><td>Limits Chromium V8 engine heap size via launch arguments.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Methods</h3>
+      <ul class="space-y-6 text-sm text-slate-600 dark:text-slate-400">
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>async pool.start()</code></strong>
+          <p class="mt-1">Launches/connects the browser process and initializes the fixed worker page pool.</p>
+        </li>
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>async pool.stop()</code></strong>
+          <p class="mt-1">Closes all worker contexts and gracefully terminates the browser process (if started locally) or disconnects (if connected remotely).</p>
+        </li>
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>async pool.screenshot(options)</code></strong>
+          <p class="mt-1">Captures a screenshot of the specified URL or raw HTML template content. Returns <code>RenderResult</code>.</p>
+          <pre class="bg-slate-900 p-3 mt-2 rounded-lg text-xs overflow-x-auto"><code class="language-typescript">const res = await pool.screenshot({
+  url: 'https://example.com',
+  format: 'png',      // 'png' | 'jpeg' | 'webp'
+  quality: 90,        // for jpeg/webp
+  fullPage: true,     // captures entire scrollable page height
+  darkMode: true,     // injects color preference
+  userAgent: 'my-custom-ua',
+  headers: { 'Authorization': 'Bearer ...' },
+  cookies: [{ name: 'session', value: '...' }]
+});</code></pre>
+        </li>
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>async pool.pdf(options)</code></strong>
+          <p class="mt-1">Generates a PDF from a URL or raw HTML content. Returns <code>RenderResult</code>.</p>
+          <pre class="bg-slate-900 p-3 mt-2 rounded-lg text-xs overflow-x-auto"><code class="language-typescript">const res = await pool.pdf({
+  url: 'https://example.com',
+  pdf: {
+    format: 'A4',
+    landscape: false,
+    printBackground: true,
+    margin: { top: '1cm', bottom: '1cm' }
+  }
+});</code></pre>
+        </li>
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>async pool.extract(options)</code></strong>
+          <p class="mt-1">Extracts structured data from HTML pages rendered in the browser using Pipsel DSL.</p>
+          <pre class="bg-slate-900 p-3 mt-2 rounded-lg text-xs overflow-x-auto"><code class="language-typescript">const result = await pool.extract({
+  url: 'https://news.ycombinator.com',
+  rules: `
+    stories[]: "tr.athing" {
+      id: self | attr("id") | int
+      title: "span.titleline > a" | text
+    }
+  `
+});
+console.log(result.data.stories); // => [{ id: 40912, title: "..." }]</code></pre>
+        </li>
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>pool.stats()</code></strong>
+          <p class="mt-1">Returns statistics regarding completed jobs, active queues, browser restarts, and memory utilization.</p>
+        </li>
+        <li class="border-b border-stone-200 dark:border-slate-800 pb-4">
+          <strong class="text-slate-900 dark:text-white text-base"><code>async pool.getPageStats()</code></strong>
+          <p class="mt-1">Count of total open tabs and contexts across default context vs. worker contexts (primarily used for memory leak analysis).</p>
+        </li>
+      </ul>
+    </section>
+
+    <section id="security" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Security (SSRF Protection)</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
+        Chromium renders page links on your server. To prevent users from requesting internal resources, Screenpool includes built-in SSRF checks blocking loopback interfaces (<code>localhost</code>, <code>127.0.0.1</code>), private IPs (<code>10.0.0.0/8</code>, <code>192.168.0.0/16</code>), link-local subnets, and AWS/cloud metadata services (<code>169.254.169.254</code>).
+      </p>
+      <p class="text-slate-600 dark:text-slate-400 mb-4">
+        To allow local testing or developer instances, enable access explicitly during initialization:
+      </p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto"><code class="language-typescript">const pool = new ScreenPool({
+  allowLocalhost: true,        // Allow localhost and loopback resolving
+  allowPrivateNetworks: true,  // Allow access to standard private ranges (192.168.X.X, etc.)
+  allowFileProtocol: true      // Allow opening file:// paths on the host system
+});</code></pre>
+    </section>
+
+    <section id="http-server" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">HTTP Server</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4">
+        Screenpool packages a Hono-based HTTP server to daemonize screenshotting and rendering services.
+      </p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-8"><code class="language-typescript">import { ScreenPool } from 'screenpool';
+import { createScreenPoolServer } from 'screenpool/http';
+
+const pool = new ScreenPool({ browser: 'chrome@stable' });
+await pool.start();
+
+const server = createScreenPoolServer(pool, { port: 3000, host: '0.0.0.0' });
+await server.listen();</code></pre>
+
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">API Endpoints</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr><th>Endpoint</th><th>Method</th><th>Description</th></tr></thead>
+          <tbody class="text-slate-600 dark:text-slate-400">
+            <tr><td><code>/screenshot</code></td><td><code>POST</code></td><td>Render a screenshot of URL or raw html. Returns image payload.</td></tr>
+            <tr><td><code>/pdf</code></td><td><code>POST</code></td><td>Render a PDF. Returns application/pdf payload.</td></tr>
+            <tr><td><code>/html-to-image</code></td><td><code>POST</code></td><td>Render raw html payload. Requires <code>html</code> in request body.</td></tr>
+            <tr><td><code>/html-to-pdf</code></td><td><code>POST</code></td><td>Render raw html to PDF. Requires <code>html</code> in request body.</td></tr>
+            <tr><td><code>/extract</code></td><td><code>POST</code></td><td>Extract structured JSON using Pipsel rules.</td></tr>
+            <tr><td><code>/stats</code></td><td><code>GET</code></td><td>Returns current server pool statistics JSON.</td></tr>
+            <tr><td><code>/health</code></td><td><code>GET</code></td><td>Checks browser connection state and system memory status.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="cli" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">CLI Reference</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4">Command line interface tools for quick scripts and running daemons:</p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-8"><code class="language-bash"># Take a screenshot and write to out.png
+screenpool screenshot https://example.com --out out.png --width 1280 --height 720
+
+# Connect to an existing browser via remote debugging and take a screenshot
+screenpool screenshot https://example.com --browser-url http://localhost:9222 --out out.png
+
+# Render a PDF using a custom Chromium binary path
+screenpool pdf https://example.com --executable-path /usr/bin/chromium --out page.pdf
+
+# Start HTTP Server daemon on port 3000
+screenpool server --port 3000 --pool-size 4
+
+# Start server daemon with interactive web UI panel
+screenpool ui --port 3000</code></pre>
+    </section>
+
+    <section id="architecture" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Architecture</h2>
+      <pre class="ascii bg-stone-100 dark:bg-slate-900/80 border border-stone-200 dark:border-slate-700 rounded-xl p-4 text-slate-700 dark:text-slate-300">┌────────────────────────────────────────────────────────────────┐
+│                          ScreenPool                            │
+├────────────────────┬────────────────────┬──────────────────────┤
+│    JobQueue        │   HealthMonitor    │    WorkerPool        │
+│                    │                    │  ┌────────────────┐  │
+│  [Job1, Job2...]   │  (Memory / RSS)    │  │ ScreenWorker 0 │  │
+│                    │                    │  │ ScreenWorker 1 │  │
+│                    │                    │  │ ScreenWorker 2 │  │
+│                    │                    │  │ ScreenWorker 3 │  │
+│                    │                    │  └────────────────┘  │
+├────────────────────┴────────────────────┴──────────────────────┤
+│                        BrowserManager                          │
+├────────────────────────────────────────────────────────────────┤
+│            Puppeteer (Connect/Launch Contexts)                 │
+├────────────────────────────────────────────────────────────────┤
+│                    Chromium Browser Process                    │
+└────────────────────────────────────────────────────────────────┘</pre>
+    </section>
+
+    <section id="development" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Development &amp; testing</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4">The codebase uses <strong class="text-slate-800 dark:text-slate-200">Vitest</strong> for integration and unit testing.</p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-4"><code class="language-bash">npm run test
+npm run test:watch</code></pre>
+      <p class="text-slate-500 text-xs">Build output files using tsup before distributing: <code>npm run build</code>.</p>
+    </section>
+
+    <footer class="pt-10 border-t border-stone-200 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-500">
+      <p><a href="https://github.com/litepacks/screenpool" class="text-cyan-800 dark:text-cyan-400 hover:underline">github.com/litepacks/screenpool</a> · MIT</p>
+    </footer>
+  </div>
+
+  <script>
+    hljs.highlightAll();
+    (function(){
+      var themeKey = 'screenpool-docs-theme';
+      var stored = localStorage.getItem(themeKey);
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (stored === 'dark' || (!stored && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      document.getElementById('theme-toggle').addEventListener('click', function(){
+        var isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem(themeKey, isDark ? 'dark' : 'light');
+      });
+    })();
+  </script>
+</body>
+</html>

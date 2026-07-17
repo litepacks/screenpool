@@ -45,6 +45,9 @@ await pool.stop();
 | System path | `{ executablePath: "/usr/bin/chromium" }` |
 | @puppeteer/browsers | `{ browser: "chrome@stable" }` |
 | Env fallback | `CHROME_PATH`, `PUPPETEER_EXECUTABLE_PATH` |
+| Remote WebSockets | `{ browserWSEndpoint: "ws://127.0.0.1:9222/devtools/browser/..." }` |
+| Remote URL | `{ browserURL: "http://localhost:9222" }` |
+| Custom Instance | `{ browserInstance: existingBrowser }` |
 
 ## HTTP server
 
@@ -67,6 +70,7 @@ Endpoints: `POST /screenshot`, `POST /pdf`, `POST /html-to-image`, `POST /html-t
 screenpool screenshot https://example.com --out shot.webp --width 1200 --height 630
 screenpool pdf https://example.com --output-dir ./output --out page.pdf
 screenpool server --port 3000 --pool-size 4 --browser chrome@stable
+screenpool screenshot https://example.com --browser-url http://localhost:9222 --out shot.webp
 ```
 
 Output directory: `--output-dir` / `SCREENPOOL_OUTPUT_DIR` (default: `./output`)

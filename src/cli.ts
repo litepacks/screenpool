@@ -18,6 +18,8 @@ function buildPoolConfig(argv: any): ScreenPoolConfig {
     maxQueueSize: argv['max-queue-size'] ?? 100,
     jobTimeout: argv['job-timeout'] ?? 15_000,
     executablePath: argv['executable-path'],
+    browserWSEndpoint: argv['browser-ws-endpoint'],
+    browserURL: argv['browser-url'],
     launchArgs: typeof argv['launch-args'] === 'string'
       ? argv['launch-args'].split(',').filter(Boolean)
       : undefined,
@@ -303,6 +305,14 @@ async function main(): Promise<void> {
     .option('executable-path', {
       type: 'string',
       describe: 'Chromium executable path',
+    })
+    .option('browser-ws-endpoint', {
+      type: 'string',
+      describe: 'Connect to an existing Chromium instance via WebSocket debugger URL',
+    })
+    .option('browser-url', {
+      type: 'string',
+      describe: 'Connect to an existing Chromium instance via HTTP URL (e.g. http://localhost:9222)',
     })
     .option('pool-size', {
       type: 'number',

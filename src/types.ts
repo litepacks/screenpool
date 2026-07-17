@@ -58,6 +58,9 @@ export interface StorageConfig {
 export interface ScreenPoolConfig {
   executablePath?: string;
   browser?: BrowserInstallConfig | BrowserShorthand;
+  browserWSEndpoint?: string;
+  browserURL?: string;
+  browserInstance?: any;
   poolSize?: number;
   maxQueueSize?: number;
   jobTimeout?: number;
@@ -212,6 +215,9 @@ export type WorkerState = 'idle' | 'busy' | 'recycling' | 'crashed';
 export interface ResolvedScreenPoolConfig {
   executablePath?: string;
   browser?: BrowserInstallConfig | BrowserShorthand;
+  browserWSEndpoint?: string;
+  browserURL?: string;
+  browserInstance?: any;
   poolSize: number;
   maxQueueSize: number;
   jobTimeout: number;
@@ -273,6 +279,9 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
   return {
     executablePath: config.executablePath,
     browser: config.browser,
+    browserWSEndpoint: config.browserWSEndpoint,
+    browserURL: config.browserURL,
+    browserInstance: config.browserInstance,
     poolSize: config.poolSize ?? DEFAULT_POOL_SIZE,
     maxQueueSize: config.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE,
     jobTimeout: config.jobTimeout ?? DEFAULT_JOB_TIMEOUT,
