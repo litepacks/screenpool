@@ -41,6 +41,16 @@ function mockPool(overrides: Partial<{
 }
 
 describe('HTTP adapter', () => {
+  it('GET / returns HTML page', async () => {
+    const pool = mockPool();
+    const app = createScreenPoolApp(pool);
+    const res = await app.request('http://localhost/');
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('ScreenPool Console');
+  });
+
   it('GET /health returns ok', async () => {
     const pool = mockPool();
     const app = createScreenPoolApp(pool);

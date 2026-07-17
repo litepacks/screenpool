@@ -3,6 +3,7 @@ import type { ScreenPool } from '../ScreenPool.js';
 import type { PdfOptions, ScreenshotOptions, ExtractOptions } from '../types.js';
 import { handleHttpError } from './errorHandler.js';
 import { bodyLimit } from './middleware/bodyLimit.js';
+import { UI_HTML } from './uiHtml.js';
 
 export interface CreateScreenPoolAppOptions {
   /** Optional path prefix for routes. */
@@ -20,6 +21,10 @@ export function createScreenPoolApp(
   const maxBody = options.maxBodyBytes ?? 1_048_576;
 
   app.use('*', bodyLimit(maxBody));
+
+  app.get('/', (c) => {
+    return c.html(UI_HTML);
+  });
 
   app.get('/health', (c) => {
     const stats = pool.stats();

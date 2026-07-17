@@ -250,6 +250,45 @@ async function runServer(argv: any): Promise<void> {
   process.on('SIGTERM', () => void shutdown());
 }
 
+async function runUi(argv: any): Promise<void> {
+  const { createScreenPoolServer } = await import('./http/createScreenPoolServer.js');
+  const pool = new ScreenPool(buildPoolConfig(argv));
+  await pool.start();
+
+  const port = argv.port ?? 3000;
+  const host = argv.host ?? '127.0.0.1';
+
+  const server = createScreenPoolServer(pool, { port, host });
+  await server.listen();
+
+  const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`;
+  console.log(`screenpool server with UI console listening on ${url}`);
+  console.log('Opening UI console in browser...');
+
+  const shutdown = async () => {
+    console.log('\nShutting down gracefully...');
+    await server.close();
+    await pool.stop();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
+
+  try {
+    const { exec } = await import('node:child_process');
+    const start = process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+      ? 'start'
+      : 'xdg-open';
+    const cmd = process.platform === 'win32' ? `start "" "${url}"` : `${start} "${url}"`;
+    exec(cmd, () => {});
+  } catch {
+    // Ignore opening errors
+  }
+}
+
 async function main(): Promise<void> {
   const parser = yargs(hideBin(process.argv))
     .scriptName('screenpool')
@@ -365,7 +404,21 @@ async function main(): Promise<void> {
         }
       }
     )
-    .demandCommand(1, 'You must specify a command (screenshot, pdf, extract, or server)');
+    .command(
+      'ui',
+      'Start HTTP server with UI console',
+      (y) => y
+        .option('port', { type: 'number', describe: 'HTTP port (default: 3000)' })
+        .option('host', { type: 'string', describe: 'Bind host (default: 127.0.0.1)' }),
+      async (argv) => {
+        try {
+          await runUi(argv);
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .demandCommand(1, 'You must specify a command (screenshot, pdf, extract, server, or ui)');
 
   await parser.parse();
 }
