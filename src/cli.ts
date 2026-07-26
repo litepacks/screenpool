@@ -229,12 +229,16 @@ async function runExtract(url: string, argv: any): Promise<void> {
 }
 
 async function runServer(argv: any): Promise<void> {
+  const requestedPort = argv['random-port'] ? 0 : (argv.port ?? 3000);
+  const host = argv.host ?? '0.0.0.0';
+
   if (argv.daemon || argv.background) {
     const { startDaemon } = await import('./utils/daemonManager.js');
     await startDaemon({
       name: argv.name,
-      port: argv.port,
-      host: argv.host,
+      port: requestedPort,
+      randomPort: argv['random-port'],
+      host,
       poolSize: argv['pool-size'],
       maxQueueSize: argv['max-queue-size'],
       jobTimeout: argv['job-timeout'],
@@ -254,13 +258,10 @@ async function runServer(argv: any): Promise<void> {
   const pool = new ScreenPool(buildPoolConfig(argv));
   await pool.start();
 
-  const port = argv.port ?? 3000;
-  const host = argv.host ?? '0.0.0.0';
+  const server = createScreenPoolServer(pool, { port: requestedPort, host });
+  const bound = await server.listen();
 
-  const server = createScreenPoolServer(pool, { port, host });
-  await server.listen();
-
-  console.log(`screenpool server listening on http://${host}:${port}`);
+  console.log(`screenpool server listening on http://${bound.host}:${bound.port}`);
 
   const shutdown = async () => {
     console.log('\nShutting down gracefully...');
@@ -278,13 +279,13 @@ async function runUi(argv: any): Promise<void> {
   const pool = new ScreenPool(buildPoolConfig(argv));
   await pool.start();
 
-  const port = argv.port ?? 3000;
+  const requestedPort = argv['random-port'] ? 0 : (argv.port ?? 3000);
   const host = argv.host ?? '127.0.0.1';
 
-  const server = createScreenPoolServer(pool, { port, host });
-  await server.listen();
+  const server = createScreenPoolServer(pool, { port: requestedPort, host });
+  const bound = await server.listen();
 
-  const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`;
+  const url = `http://${bound.host === '0.0.0.0' ? '127.0.0.1' : bound.host}:${bound.port}`;
   console.log(`screenpool server with UI console listening on ${url}`);
   console.log('Opening UI console in browser...');
 
@@ -461,7 +462,8 @@ async function main(): Promise<void> {
       'server',
       'Start HTTP server',
       (y) => y
-        .option('port', { type: 'number', describe: 'HTTP port (default: 3000)' })
+        .option('port', { type: 'number', describe: 'HTTP port (default: 3000, 0 for random port)' })
+        .option('random-port', { alias: 'R', type: 'boolean', describe: 'Bind to a random available port' })
         .option('host', { type: 'string', describe: 'Bind host (default: 0.0.0.0)' })
         .option('daemon', { alias: 'd', type: 'boolean', describe: 'Run HTTP server in background via unitup' })
         .option('background', { type: 'boolean', describe: 'Run HTTP server in background' })
@@ -484,7 +486,8 @@ async function main(): Promise<void> {
           describe: 'Daemon action: start, stop, restart, status, logs, remove',
         })
         .option('name', { type: 'string', describe: 'Service name (default: screenpool)' })
-        .option('port', { type: 'number', describe: 'HTTP port (default: 3000)' })
+        .option('port', { type: 'number', describe: 'HTTP port (default: 3000, 0 for random port)' })
+        .option('random-port', { alias: 'R', type: 'boolean', describe: 'Bind to a random available port' })
         .option('host', { type: 'string', describe: 'Bind host (default: 0.0.0.0)' })
         .option('follow', { alias: 'f', type: 'boolean', describe: 'Follow log output' })
         .option('lines', { alias: 'n', type: 'number', describe: 'Number of log lines to output (default: 50)' })
@@ -495,6 +498,7 @@ async function main(): Promise<void> {
           const opts = {
             name: argv.name as string | undefined,
             port: argv.port as number | undefined,
+            randomPort: Boolean(argv['random-port']),
             host: argv.host as string | undefined,
             poolSize: argv['pool-size'] as number | undefined,
             maxQueueSize: argv['max-queue-size'] as number | undefined,
@@ -541,7 +545,8 @@ async function main(): Promise<void> {
       'ui',
       'Start HTTP server with UI console',
       (y) => y
-        .option('port', { type: 'number', describe: 'HTTP port (default: 3000)' })
+        .option('port', { type: 'number', describe: 'HTTP port (default: 3000, 0 for random port)' })
+        .option('random-port', { alias: 'R', type: 'boolean', describe: 'Bind to a random available port' })
         .option('host', { type: 'string', describe: 'Bind host (default: 127.0.0.1)' }),
       async (argv) => {
         try {

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, openSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,7 @@ import * as unitup from 'unitup';
 export interface DaemonOptions {
   name?: string;
   port?: number;
+  randomPort?: boolean;
   host?: string;
   poolSize?: number;
   maxQueueSize?: number;
@@ -23,6 +25,18 @@ export interface DaemonOptions {
   follow?: boolean;
   lines?: number;
   force?: boolean;
+}
+
+export async function getRandomPort(host = '127.0.0.1'): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.listen(0, host, () => {
+      const addr = srv.address();
+      const port = addr && typeof addr === 'object' ? addr.port : 0;
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
 }
 
 const DEFAULT_SERVICE_NAME = 'screenpool';
@@ -90,6 +104,10 @@ export async function isSystemdSupported(): Promise<boolean> {
 }
 
 export async function startDaemon(options: DaemonOptions = {}): Promise<void> {
+  if (options.randomPort || options.port === 0) {
+    options.port = await getRandomPort(options.host ?? '127.0.0.1');
+  }
+
   const name = options.name || DEFAULT_SERVICE_NAME;
   const useSystemd = await isSystemdSupported();
 

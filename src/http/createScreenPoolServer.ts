@@ -10,7 +10,8 @@ export interface CreateScreenPoolServerOptions extends CreateScreenPoolAppOption
 export interface ScreenPoolServer {
   app: ReturnType<typeof createScreenPoolApp>;
   server: ServerType;
-  listen: () => Promise<void>;
+  port: number;
+  listen: () => Promise<{ port: number; host: string }>;
   close: () => Promise<void>;
 }
 
@@ -20,13 +21,17 @@ export function createScreenPoolServer(
   options: CreateScreenPoolServerOptions = {},
 ): ScreenPoolServer {
   const app = createScreenPoolApp(pool, options);
-  const port = options.port ?? 3000;
+  const requestedPort = options.port ?? 3000;
   const hostname = options.host ?? '0.0.0.0';
 
   let server: ServerType | null = null;
+  let boundPort = requestedPort;
 
   return {
     app,
+    get port() {
+      return boundPort;
+    },
     get server() {
       if (!server) {
         throw new Error('Server not started. Call listen() first.');
@@ -34,9 +39,15 @@ export function createScreenPoolServer(
       return server;
     },
     listen: () =>
-      new Promise<void>((resolve) => {
-        server = serve({ fetch: app.fetch, port, hostname }, () => {
-          resolve();
+      new Promise<{ port: number; host: string }>((resolve) => {
+        server = serve({ fetch: app.fetch, port: requestedPort, hostname }, () => {
+          if (server) {
+            const addr = server.address();
+            if (addr && typeof addr === 'object') {
+              boundPort = addr.port;
+            }
+          }
+          resolve({ port: boundPort, host: hostname });
         });
       }),
     close: () =>

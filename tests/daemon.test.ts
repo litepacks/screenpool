@@ -32,4 +32,16 @@ describe('daemonManager unit tests', () => {
     // Stop daemon
     await expect(stopDaemon({ name: testServiceName })).resolves.not.toThrow();
   });
+
+  it('should start daemon with random port gracefully', async () => {
+    await startDaemon({
+      name: testServiceName,
+      randomPort: true,
+      host: '127.0.0.1',
+      force: true,
+    });
+
+    await expect(getDaemonStatus({ name: testServiceName })).resolves.not.toThrow();
+    await expect(stopDaemon({ name: testServiceName })).resolves.not.toThrow();
+  });
 });

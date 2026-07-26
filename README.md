@@ -88,6 +88,10 @@ Start and supervise the ScreenPool server in the background using systemd native
 # Start HTTP server in background (daemon mode)
 screenpool server --daemon --port 3000
 
+# Start background server on a random available port
+screenpool server --daemon --random-port
+screenpool daemon start --port 0
+
 # Or using the dedicated daemon subcommands:
 screenpool daemon start --port 3000 --pool-size 4
 screenpool daemon status
