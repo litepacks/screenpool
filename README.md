@@ -6,9 +6,12 @@ Lightweight in-process rendering pool for Node.js. Runs Chromium once, keeps a f
 
 ```bash
 npm install screenpool
+
+# Download Chromium binary into ~/.screenpool/browser
+npx screenpool setup
 ```
 
-**Requirements:** Node.js 20+ and a Chromium binary (system Chrome/Chromium, or `npx @puppeteer/browsers install chrome@stable`).
+**Requirements:** Node.js 20+ and a Chromium binary (system Chrome/Chromium, downloaded via `npx screenpool setup`, or installed via `npx @puppeteer/browsers install chrome@stable`).
 
 `puppeteer-core` and `@puppeteer/browsers` are included — no bundled browser download.
 
@@ -67,11 +70,36 @@ Endpoints: `POST /screenshot`, `POST /pdf`, `POST /html-to-image`, `POST /html-t
 ## CLI
 
 ```bash
+# Setup / download browser into ~/.screenpool/browser
+screenpool setup
+screenpool setup --browser chrome@stable --dir ~/.screenpool/browser
+
 screenpool screenshot https://example.com --out shot.webp --width 1200 --height 630
 screenpool pdf https://example.com --output-dir ./output --out page.pdf
 screenpool server --port 3000 --pool-size 4 --browser chrome@stable
 screenpool screenshot https://example.com --browser-url http://localhost:9222 --out shot.webp
 ```
+
+### Background Server Management (unitup)
+
+Start and supervise the ScreenPool server in the background using systemd native user services via [unitup](https://litepacks.github.io/unitup/):
+
+```bash
+# Start HTTP server in background (daemon mode)
+screenpool server --daemon --port 3000
+
+# Or using the dedicated daemon subcommands:
+screenpool daemon start --port 3000 --pool-size 4
+screenpool daemon status
+screenpool daemon logs --follow
+screenpool daemon restart
+screenpool daemon stop
+screenpool daemon remove
+```
+
+> [!NOTE]
+> On Linux with systemd, unitup automatically registers and manages systemd user unit files (`~/.config/systemd/user/unitup-screenpool.service`). On systems without systemd, ScreenPool gracefully falls back to background process execution with log files in `~/.screenpool/daemons/`.
+
 
 Output directory: `--output-dir` / `SCREENPOOL_OUTPUT_DIR` (default: `./output`)
 

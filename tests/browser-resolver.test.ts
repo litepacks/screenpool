@@ -23,15 +23,26 @@ describe('parseBrowserShorthand', () => {
   });
 });
 
-describe('getSearchCacheDirs', () => {
-  it('includes cwd for npx install default location', () => {
+describe('getSearchCacheDirs & getDefaultCacheDir', () => {
+  it('includes ~/.screenpool/browser in search cache dirs', () => {
+    const { homedir } = require('node:os');
     const dirs = getSearchCacheDirs();
+    expect(dirs).toContain(join(homedir(), '.screenpool', 'browser'));
     expect(dirs).toContain(process.cwd());
   });
 
   it('puts explicit cacheDir first', () => {
     const dirs = getSearchCacheDirs('/custom/cache');
     expect(dirs[0]).toBe('/custom/cache');
+  });
+
+  it('respects SCREENPOOL_CACHE_DIR environment variable', () => {
+    const original = process.env.SCREENPOOL_CACHE_DIR;
+    process.env.SCREENPOOL_CACHE_DIR = '/tmp/custom-screenpool-cache';
+    const dirs = getSearchCacheDirs();
+    expect(dirs).toContain('/tmp/custom-screenpool-cache');
+    if (original) process.env.SCREENPOOL_CACHE_DIR = original;
+    else delete process.env.SCREENPOOL_CACHE_DIR;
   });
 });
 

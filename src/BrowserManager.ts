@@ -42,6 +42,10 @@ export class BrowserManager {
       await this.closeDefaultContextPages(this.browser);
     }
 
+    if (!this.browser) {
+      throw new BrowserCrashedError('Failed to launch browser.');
+    }
+
     this.browser.on('disconnected', () => {
       this.browser = null;
       this.disconnectHandler?.();

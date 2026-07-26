@@ -39,5 +39,13 @@ export {
   isScreenPoolError,
 } from './errors.js';
 
-export { resolveBrowserExecutable, parseBrowserShorthand } from './utils/resolveBrowserExecutable.js';
+export {
+  resolveBrowserExecutable,
+  parseBrowserShorthand,
+  setupBrowser,
+  getDefaultCacheDir,
+  getSearchCacheDirs,
+} from './utils/resolveBrowserExecutable.js';
+export type { SetupBrowserOptions, SetupBrowserResult } from './utils/resolveBrowserExecutable.js';
 export { resolveOutputPath, ensureOutputDir, formatToExt } from './utils/resolveOutputPath.js';
+

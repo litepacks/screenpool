@@ -229,6 +229,27 @@ async function runExtract(url: string, argv: any): Promise<void> {
 }
 
 async function runServer(argv: any): Promise<void> {
+  if (argv.daemon || argv.background) {
+    const { startDaemon } = await import('./utils/daemonManager.js');
+    await startDaemon({
+      name: argv.name,
+      port: argv.port,
+      host: argv.host,
+      poolSize: argv['pool-size'],
+      maxQueueSize: argv['max-queue-size'],
+      jobTimeout: argv['job-timeout'],
+      browser: argv.browser,
+      executablePath: argv['executable-path'],
+      browserWsEndpoint: argv['browser-ws-endpoint'],
+      browserUrl: argv['browser-url'],
+      launchArgs: argv['launch-args'],
+      memoryLimit: argv['memory-limit'],
+      v8Heap: argv['v8-heap'],
+      outputDir: argv['output-dir'],
+    });
+    return;
+  }
+
   const { createScreenPoolServer } = await import('./http/createScreenPoolServer.js');
   const pool = new ScreenPool(buildPoolConfig(argv));
   await pool.start();
@@ -289,6 +310,42 @@ async function runUi(argv: any): Promise<void> {
   } catch {
     // Ignore opening errors
   }
+}
+
+async function runSetup(argv: any): Promise<void> {
+  const { setupBrowser } = await import('./utils/resolveBrowserExecutable.js');
+
+  const browser = argv.browser ?? 'chrome@stable';
+  const cacheDir = argv.dir;
+  const force = Boolean(argv.force);
+
+  console.log(`Setting up browser (${browser})...`);
+
+  let lastPercent = -1;
+  const onProgress = (downloadedBytes: number, totalBytes: number) => {
+    if (totalBytes > 0) {
+      const pct = Math.floor((downloadedBytes / totalBytes) * 100);
+      if (pct % 10 === 0 && pct !== lastPercent) {
+        lastPercent = pct;
+        process.stdout.write(`Downloading: ${pct}%\r`);
+      }
+    }
+  };
+
+  const result = await setupBrowser({
+    browser,
+    cacheDir,
+    force,
+    onProgress,
+  });
+
+  if (result.alreadyInstalled) {
+    console.log(`Browser ${result.browser} (${result.buildId}) is already installed.`);
+  } else {
+    console.log(`\nBrowser downloaded successfully!`);
+  }
+  console.log(`Location: ${result.cacheDir}`);
+  console.log(`Executable: ${result.executablePath}`);
 }
 
 async function main(): Promise<void> {
@@ -405,10 +462,76 @@ async function main(): Promise<void> {
       'Start HTTP server',
       (y) => y
         .option('port', { type: 'number', describe: 'HTTP port (default: 3000)' })
-        .option('host', { type: 'string', describe: 'Bind host (default: 0.0.0.0)' }),
+        .option('host', { type: 'string', describe: 'Bind host (default: 0.0.0.0)' })
+        .option('daemon', { alias: 'd', type: 'boolean', describe: 'Run HTTP server in background via unitup' })
+        .option('background', { type: 'boolean', describe: 'Run HTTP server in background' })
+        .option('name', { type: 'string', describe: 'Service name for background daemon (default: screenpool)' }),
       async (argv) => {
         try {
           await runServer(argv);
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .command(
+      'daemon <subcommand>',
+      'Manage background server service via unitup (systemd)',
+      (y) => y
+        .positional('subcommand', {
+          type: 'string',
+          choices: ['start', 'stop', 'restart', 'status', 'logs', 'remove'],
+          describe: 'Daemon action: start, stop, restart, status, logs, remove',
+        })
+        .option('name', { type: 'string', describe: 'Service name (default: screenpool)' })
+        .option('port', { type: 'number', describe: 'HTTP port (default: 3000)' })
+        .option('host', { type: 'string', describe: 'Bind host (default: 0.0.0.0)' })
+        .option('follow', { alias: 'f', type: 'boolean', describe: 'Follow log output' })
+        .option('lines', { alias: 'n', type: 'number', describe: 'Number of log lines to output (default: 50)' })
+        .option('force', { type: 'boolean', describe: 'Force overwrite or deletion' }),
+      async (argv) => {
+        try {
+          const { startDaemon, stopDaemon, restartDaemon, getDaemonStatus, getDaemonLogs, removeDaemon } = await import('./utils/daemonManager.js');
+          const opts = {
+            name: argv.name as string | undefined,
+            port: argv.port as number | undefined,
+            host: argv.host as string | undefined,
+            poolSize: argv['pool-size'] as number | undefined,
+            maxQueueSize: argv['max-queue-size'] as number | undefined,
+            jobTimeout: argv['job-timeout'] as number | undefined,
+            browser: argv.browser as string | undefined,
+            executablePath: argv['executable-path'] as string | undefined,
+            browserWsEndpoint: argv['browser-ws-endpoint'] as string | undefined,
+            browserUrl: argv['browser-url'] as string | undefined,
+            launchArgs: argv['launch-args'] as string | undefined,
+            memoryLimit: argv['memory-limit'] as number | undefined,
+            v8Heap: argv['v8-heap'] as number | undefined,
+            outputDir: argv['output-dir'] as string | undefined,
+            follow: Boolean(argv.follow),
+            lines: argv.lines as number | undefined,
+            force: Boolean(argv.force),
+          };
+
+          switch (argv.subcommand) {
+            case 'start':
+              await startDaemon(opts);
+              break;
+            case 'stop':
+              await stopDaemon(opts);
+              break;
+            case 'restart':
+              await restartDaemon(opts);
+              break;
+            case 'status':
+              await getDaemonStatus(opts);
+              break;
+            case 'logs':
+              await getDaemonLogs(opts);
+              break;
+            case 'remove':
+              await removeDaemon(opts);
+              break;
+          }
         } catch (error) {
           handleError(error);
         }
@@ -428,7 +551,33 @@ async function main(): Promise<void> {
         }
       }
     )
-    .demandCommand(1, 'You must specify a command (screenshot, pdf, extract, server, or ui)');
+    .command(
+      'setup',
+      'Download and setup browser binary into ~/.screenpool/browser',
+      (y) => y
+        .option('browser', {
+          alias: 'b',
+          type: 'string',
+          describe: 'Browser shorthand (default: chrome@stable)',
+        })
+        .option('dir', {
+          type: 'string',
+          describe: 'Target directory for browser download (default: ~/.screenpool/browser)',
+        })
+        .option('force', {
+          alias: 'f',
+          type: 'boolean',
+          describe: 'Force re-downloading browser binary even if already installed',
+        }),
+      async (argv) => {
+        try {
+          await runSetup(argv);
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .demandCommand(1, 'You must specify a command (setup, screenshot, pdf, extract, server, daemon, or ui)');
 
   await parser.parse();
 }

@@ -64,14 +64,18 @@ function normalizeBrowserConfig(
   };
 }
 
-/** Default puppeteer browsers cache (~/.cache/puppeteer). */
+/** Default screenpool browser cache (~/.screenpool/browser). */
 export function getDefaultCacheDir(): string {
-  return process.env.PUPPETEER_CACHE_DIR ?? join(homedir(), '.cache', 'puppeteer');
+  return (
+    process.env.SCREENPOOL_CACHE_DIR ??
+    process.env.PUPPETEER_CACHE_DIR ??
+    join(homedir(), '.screenpool', 'browser')
+  );
 }
 
 /**
  * Cache directories to search for installed browsers.
- * Includes @puppeteer/browsers CLI default (process.cwd()) when install is run without --path.
+ * Priority: explicit cache dir > SCREENPOOL_CACHE_DIR > PUPPETEER_CACHE_DIR > ~/.screenpool/browser > ~/.cache/puppeteer > process.cwd()
  */
 export function getSearchCacheDirs(explicitCacheDir?: string): string[] {
   const dirs = new Set<string>();
@@ -80,10 +84,16 @@ export function getSearchCacheDirs(explicitCacheDir?: string): string[] {
     dirs.add(explicitCacheDir);
   }
 
+  if (process.env.SCREENPOOL_CACHE_DIR) {
+    dirs.add(process.env.SCREENPOOL_CACHE_DIR);
+  }
+
   if (process.env.PUPPETEER_CACHE_DIR) {
     dirs.add(process.env.PUPPETEER_CACHE_DIR);
   }
 
+  dirs.add(join(homedir(), '.screenpool', 'browser'));
+  dirs.add(join(homedir(), '.screenpool'));
   dirs.add(join(homedir(), '.cache', 'puppeteer'));
   dirs.add(process.cwd());
 
@@ -305,4 +315,166 @@ export async function resolveBrowserExecutable(config: ScreenPoolConfig): Promis
   }
 
   throw new BrowserNotFoundError();
+}
+
+export interface SetupBrowserOptions {
+  /** Browser shorthand e.g. 'chrome@stable' or config object. Default: 'chrome@stable' */
+  browser?: BrowserInstallConfig | BrowserShorthand;
+  /** Custom directory to install browser into. Default: ~/.screenpool/browser */
+  cacheDir?: string;
+  /** Force re-download even if browser binary already exists. */
+  force?: boolean;
+  /** Optional callback for download progress updates. */
+  onProgress?: (downloadedBytes: number, totalBytes: number) => void;
+}
+
+export interface SetupBrowserResult {
+  executablePath: string;
+  browser: string;
+  buildId: string;
+  cacheDir: string;
+  alreadyInstalled: boolean;
+}
+
+/**
+ * Download and setup Chromium browser binary into cache directory (~/.screenpool/browser by default).
+ */
+export async function setupBrowser(
+  options: SetupBrowserOptions = {},
+): Promise<SetupBrowserResult> {
+  const browserConfig = normalizeBrowserConfig(options.browser ?? 'chrome@stable');
+  const type = browserConfig.type ?? 'chrome';
+  const channel = browserConfig.channel ?? 'stable';
+
+  let browsersModule: typeof import('@puppeteer/browsers');
+  try {
+    browsersModule = await import('@puppeteer/browsers');
+  } catch (error) {
+    throw new BrowserResolveError(
+      'Package @puppeteer/browsers is not installed. Run: npm install @puppeteer/browsers',
+      error,
+    );
+  }
+
+  const {
+    Browser,
+    computeExecutablePath,
+    getInstalledBrowsers,
+    resolveBuildId,
+    detectBrowserPlatform,
+    install,
+  } = browsersModule;
+
+  const browserKeyMap = {
+    chrome: Browser.CHROME,
+    'chrome-headless-shell': Browser.CHROMEHEADLESSSHELL,
+    chromium: Browser.CHROMIUM,
+  } as const;
+
+  const browserEnum = browserKeyMap[type as keyof typeof browserKeyMap] ?? Browser.CHROME;
+
+  const platform = detectBrowserPlatform();
+  if (!platform) {
+    throw new BrowserResolveError('Could not detect browser platform.');
+  }
+
+  const cacheDir = options.cacheDir ?? browserConfig.cacheDir ?? getDefaultCacheDir();
+
+  if (!options.force) {
+    try {
+      const installed = await getInstalledBrowsers({ cacheDir });
+      const matches = installed.filter(
+        (entry) => entry.browser === browserEnum && entry.platform === platform,
+      );
+
+      if (browserConfig.buildId) {
+        const exact = matches.find((entry) => entry.buildId === browserConfig.buildId);
+        if (exact?.executablePath && (await fileExists(exact.executablePath))) {
+          return {
+            executablePath: exact.executablePath,
+            browser: browserEnum,
+            buildId: exact.buildId,
+            cacheDir,
+            alreadyInstalled: true,
+          };
+        }
+      }
+
+      // Any valid installed version for this browser type
+      const sorted = [...matches].sort((a, b) => compareBuildIds(a.buildId, b.buildId));
+      for (const entry of sorted) {
+        if (entry.executablePath && (await fileExists(entry.executablePath))) {
+          return {
+            executablePath: entry.executablePath,
+            browser: browserEnum,
+            buildId: entry.buildId,
+            cacheDir,
+            alreadyInstalled: true,
+          };
+        }
+      }
+    } catch {
+      // ignore lookup errors and proceed with installation
+    }
+  }
+
+  const buildId =
+    browserConfig.buildId ?? (await resolveBuildId(browserEnum, platform, channel));
+
+  const buildDir = join(cacheDir, browserEnum, `${platform}-${buildId}`);
+  const zipFile = `${buildDir}.zip`;
+  const { rm } = await import('node:fs/promises');
+
+  try {
+    const computedPath = computeExecutablePath({
+      browser: browserEnum,
+      buildId,
+      cacheDir,
+    });
+    if (!(await fileExists(computedPath))) {
+      await rm(buildDir, { recursive: true, force: true }).catch(() => {});
+      await rm(zipFile, { force: true }).catch(() => {});
+    }
+  } catch {
+    // ignore cleanup errors
+  }
+
+  let installedBrowser;
+  try {
+    installedBrowser = await install({
+      browser: browserEnum,
+      buildId,
+      cacheDir,
+      platform,
+      downloadProgressCallback: options.onProgress,
+    });
+  } catch {
+    // Clean up potentially corrupted zip archive or folder and retry once
+    await rm(buildDir, { recursive: true, force: true }).catch(() => {});
+    await rm(zipFile, { force: true }).catch(() => {});
+
+    installedBrowser = await install({
+      browser: browserEnum,
+      buildId,
+      cacheDir,
+      platform,
+      downloadProgressCallback: options.onProgress,
+    });
+  }
+
+  if (!(await fileExists(installedBrowser.executablePath))) {
+    await rm(buildDir, { recursive: true, force: true }).catch(() => {});
+    await rm(zipFile, { force: true }).catch(() => {});
+    throw new BrowserResolveError(
+      `Failed to setup ${type}@${channel}: Browser executable missing at ${installedBrowser.executablePath}`,
+    );
+  }
+
+  return {
+    executablePath: installedBrowser.executablePath,
+    browser: browserEnum,
+    buildId,
+    cacheDir,
+    alreadyInstalled: false,
+  };
 }
