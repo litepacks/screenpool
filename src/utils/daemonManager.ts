@@ -68,7 +68,7 @@ function getCliScriptPath(): string {
   if (existsSync(rootCli)) {
     return rootCli;
   }
-  return process.argv[1];
+  return process.argv[1] || '';
 }
 
 function buildServerArgs(options: DaemonOptions): string[] {
@@ -237,13 +237,18 @@ export async function getDaemonStatus(options: DaemonOptions = {}): Promise<void
   if (useSystemd) {
     try {
       const info = await unitup.getServiceStatus(name);
+      let memory = '-';
+      try {
+        const mem = await unitup.getServiceMemoryUsage(name);
+        memory = mem.memory || '-';
+      } catch {}
       console.log(`Service:   ${info.name}`);
       console.log(`Unit:      ${info.unitFile}`);
       console.log(`Status:    ${info.status}`);
       console.log(`PID:       ${info.pid}`);
       console.log(`Started:   ${info.started}`);
       console.log(`Restarts:  ${info.restarts}`);
-      console.log(`Memory:    ${info.memory}`);
+      console.log(`Memory:    ${memory}`);
       console.log(`Command:   ${info.command} ${info.arguments}`);
       return;
     } catch {

@@ -41,7 +41,7 @@
     "hono": "^4.7.0",
     "pipsel": "^0.0.3",
     "puppeteer-core": "^24.0.0",
-    "unitup": "^0.0.12",
+    "unitup": "^0.1.0",
     "yargs": "^18.0.0"
   },
   "devDependencies": {
