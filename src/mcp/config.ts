@@ -36,11 +36,11 @@ export interface ScreenpoolMcpConfig {
 
 export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFilePath' | 'browser' | 'executablePath'>> & {
   configFilePath?: string;
-  browser: string;
+  browser?: string;
   executablePath?: string;
 } = {
   configFilePath: undefined,
-  browser: 'chromium',
+  browser: undefined,
   executablePath: undefined,
   poolSize: 3,
   maxQueueSize: 100,

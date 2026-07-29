@@ -21,6 +21,7 @@ export class ScreenpoolMcpServer {
   private isClosing = false;
   private transport: StdioServerTransport | null = null;
   private removeSignalListeners?: () => void;
+  private poolStartPromise: Promise<void> | null = null;
 
   constructor(options: ScreenpoolMcpServerOptions = {}) {
     this.config = resolveMcpConfig(options.config, options.configFilePath);
@@ -49,16 +50,19 @@ export class ScreenpoolMcpServer {
     });
   }
 
+  async ensurePoolStarted(): Promise<void> {
+    if (!this.isOwnPool) return;
+    if (!this.poolStartPromise) {
+      this.logger.info(`Starting ScreenPool engine (poolSize=${this.config.poolSize}, browser=${this.config.browser})...`);
+      this.poolStartPromise = this.pool.start();
+    }
+    await this.poolStartPromise;
+  }
+
   /** Initialize ScreenPool (if owned) and register MCP tools. */
   async init(): Promise<void> {
     if (this.isStarted) return;
-
-    if (this.isOwnPool) {
-      this.logger.info(`Starting ScreenPool engine (poolSize=${this.config.poolSize}, browser=${this.config.browser})...`);
-      await this.pool.start();
-    }
-
-    registerMcpTools(this.mcpServer, this.pool, this.config, this.logger);
+    registerMcpTools(this.mcpServer, this.pool, this.config, this.logger, () => this.ensurePoolStarted());
     this.isStarted = true;
   }
 
@@ -73,6 +77,12 @@ export class ScreenpoolMcpServer {
 
     await this.mcpServer.connect(this.transport);
     this.logger.info('Screenpool MCP Server is ready and listening on stdio.');
+
+    if (this.isOwnPool) {
+      this.ensurePoolStarted().catch((err) => {
+        this.logger.error(`Failed to pre-warm ScreenPool engine: ${err?.message || err}`);
+      });
+    }
   }
 
   /** Graceful shutdown. Safely closes server and browser pool. */

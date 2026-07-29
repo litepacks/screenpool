@@ -20,7 +20,7 @@ describe('MCP Config Resolution Unit Tests', () => {
 
   it('resolves default config values when no CLI or env vars specified', () => {
     const config = resolveMcpConfig({});
-    expect(config.browser).toBe('chromium');
+    expect(config.browser).toBeUndefined();
     expect(config.poolSize).toBe(3);
     expect(config.timeout).toBe(30000);
     expect(config.headless).toBe(true);

@@ -31,12 +31,15 @@ const BROWSER_TYPE_MAP: Record<BrowserType, string> = {
   chromium: 'chromium',
 };
 
-/** Parse shorthand like "chrome@stable". */
+/** Parse shorthand like "chrome@stable", "chrome", or "chromium". */
 export function parseBrowserShorthand(shorthand: string): BrowserInstallConfig {
+  if (shorthand === 'chrome' || shorthand === 'chromium' || shorthand === 'chrome-headless-shell') {
+    return { type: shorthand as BrowserType, channel: 'stable' };
+  }
   const match = shorthand.match(/^([a-z-]+)@([a-z]+)$/);
   if (!match) {
     throw new InvalidRenderInputError(
-      `Invalid browser shorthand: ${shorthand}. Expected format: chrome@stable`,
+      `Invalid browser shorthand: ${shorthand}. Expected format: chrome@stable, chrome, or chromium`,
     );
   }
 

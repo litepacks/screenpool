@@ -26,6 +26,7 @@ export function registerMcpTools(
   pool: ScreenPool,
   config: ScreenpoolMcpConfig,
   logger: McpLogger,
+  ensureStarted?: () => Promise<void>,
 ): void {
   const enabled = new Set(
     config.mcp?.enabledTools || [
@@ -51,6 +52,7 @@ export function registerMcpTools(
         const requestId = randomBytes(4).toString('hex');
         const start = Date.now();
         try {
+          if (ensureStarted) await ensureStarted();
           logger.debug(`[${requestId}] Tool screenpool_screenshot called for URL: ${args.url}`);
           const res = await handleScreenshot(pool, args, config);
           logger.logRequest(requestId, 'screenpool_screenshot', 'success', Date.now() - start, args.url);
@@ -92,6 +94,7 @@ export function registerMcpTools(
         const requestId = randomBytes(4).toString('hex');
         const start = Date.now();
         try {
+          if (ensureStarted) await ensureStarted();
           logger.debug(`[${requestId}] Tool screenpool_pdf called for URL: ${args.url}`);
           const res = await handlePdf(pool, args, config);
           logger.logRequest(requestId, 'screenpool_pdf', 'success', Date.now() - start, args.url);
@@ -133,6 +136,7 @@ export function registerMcpTools(
         const requestId = randomBytes(4).toString('hex');
         const start = Date.now();
         try {
+          if (ensureStarted) await ensureStarted();
           logger.debug(`[${requestId}] Tool screenpool_html called for URL: ${args.url}`);
           const res = await handleHtml(pool, args, config);
           logger.logRequest(requestId, 'screenpool_html', 'success', Date.now() - start, args.url);
@@ -174,6 +178,7 @@ export function registerMcpTools(
         const requestId = randomBytes(4).toString('hex');
         const start = Date.now();
         try {
+          if (ensureStarted) await ensureStarted();
           logger.debug(`[${requestId}] Tool screenpool_metadata called for URL: ${args.url}`);
           const res = await handleMetadata(pool, args, config);
           logger.logRequest(requestId, 'screenpool_metadata', 'success', Date.now() - start, args.url);
@@ -215,6 +220,7 @@ export function registerMcpTools(
         const requestId = randomBytes(4).toString('hex');
         const start = Date.now();
         try {
+          if (ensureStarted) await ensureStarted();
           const res = await handleHealth(pool, config);
           logger.logRequest(requestId, 'screenpool_health', 'success', Date.now() - start);
           return {
