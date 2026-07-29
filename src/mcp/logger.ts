@@ -14,8 +14,10 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 export function maskSensitiveData(input: string): string {
   if (!input) return input;
   return input
-    .replace(/(authorization|cookie|set-cookie|token|api_key|apikey|password|secret|key)=([^&\s;]+)/gi, '$1=***MASKED***')
-    .replace(/(bearer\s+)[a-zA-Z0-9._~+/-]+=*/gi, '$1***MASKED***');
+    .replace(/(authorization:\s*)([^\r\n]+)/gi, '$1***MASKED***')
+    .replace(/(authorization=)(bearer\s+)?[^\s;]+/gi, '$1***MASKED***')
+    .replace(/(cookie|set-cookie|token|api_key|apikey|password|secret|key)=([^\s;]+)/gi, '$1=***MASKED***')
+    .replace(/(bearer\s+)[^\s;]+/gi, '$1***MASKED***');
 }
 
 export class McpLogger {

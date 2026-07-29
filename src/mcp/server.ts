@@ -37,6 +37,8 @@ export class ScreenpoolMcpServer {
         maxQueueSize: this.config.maxQueueSize,
         jobTimeout: this.config.timeout,
         outputDir: this.config.artifactsDir,
+        allowLocalhost: this.config.security.allowPrivateNetwork,
+        allowPrivateNetworks: this.config.security.allowPrivateNetwork,
       });
       this.isOwnPool = true;
     }

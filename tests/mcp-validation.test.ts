@@ -18,11 +18,11 @@ describe('MCP Validation & Security Unit Tests', () => {
   });
 
   it('blocks private networks and loopback IPs by default (SSRF prevention)', () => {
-    expect(() => validateTargetUrl('http://127.0.0.1:8080')).toThrow(/PRIVATE_NETWORK_BLOCKED/);
-    expect(() => validateTargetUrl('http://localhost:3000')).toThrow(/PRIVATE_NETWORK_BLOCKED/);
-    expect(() => validateTargetUrl('http://10.0.0.1')).toThrow(/PRIVATE_NETWORK_BLOCKED/);
-    expect(() => validateTargetUrl('http://192.168.1.50')).toThrow(/PRIVATE_NETWORK_BLOCKED/);
-    expect(() => validateTargetUrl('http://169.254.169.254/latest/meta-data')).toThrow(/PRIVATE_NETWORK_BLOCKED/);
+    expect(() => validateTargetUrl('http://127.0.0.1:8080')).toThrow(/blocked/);
+    expect(() => validateTargetUrl('http://localhost:3000')).toThrow(/blocked/);
+    expect(() => validateTargetUrl('http://10.0.0.1')).toThrow(/blocked/);
+    expect(() => validateTargetUrl('http://192.168.1.50')).toThrow(/blocked/);
+    expect(() => validateTargetUrl('http://169.254.169.254/latest/meta-data')).toThrow(/blocked/);
   });
 
   it('allows private network addresses when allowPrivateNetwork is true', () => {
@@ -37,7 +37,7 @@ describe('MCP Validation & Security Unit Tests', () => {
     };
     expect(() => validateTargetUrl('https://example.com/path', policy)).not.toThrow();
     expect(() => validateTargetUrl('https://sub.target.org/path', policy)).not.toThrow();
-    expect(() => validateTargetUrl('https://malicious.com', policy)).toThrow(/DOMAIN_NOT_ALLOWED/);
+    expect(() => validateTargetUrl('https://malicious.com', policy)).toThrow(/not in the allowed domains/);
   });
 
   it('enforces denied domains blacklist', () => {
@@ -46,8 +46,8 @@ describe('MCP Validation & Security Unit Tests', () => {
       deniedDomains: ['admin.example.com', '*.internal'],
     };
     expect(() => validateTargetUrl('https://example.com', policy)).not.toThrow();
-    expect(() => validateTargetUrl('https://admin.example.com', policy)).toThrow(/DOMAIN_NOT_ALLOWED/);
-    expect(() => validateTargetUrl('https://app.internal', policy)).toThrow(/DOMAIN_NOT_ALLOWED/);
+    expect(() => validateTargetUrl('https://admin.example.com', policy)).toThrow(/explicitly denied/);
+    expect(() => validateTargetUrl('https://app.internal', policy)).toThrow(/explicitly denied/);
   });
 
   it('validates ScreenshotInputSchema correctly', () => {

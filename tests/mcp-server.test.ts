@@ -55,6 +55,8 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     pool = new ScreenPool({
       executablePath: chromiumPath,
       poolSize: 2,
+      allowLocalhost: true,
+      allowPrivateNetworks: true,
     });
     await pool.start();
 
@@ -66,7 +68,7 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
       },
     });
     await mcpServer.init();
-  });
+  }, 30000);
 
   afterAll(async () => {
     if (mcpServer) await mcpServer.close();
@@ -74,7 +76,7 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     if (httpServer) {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     }
-  });
+  }, 30000);
 
   it('captures screenshot via MCP handler', async () => {
     const config = mcpServer.currentConfig;

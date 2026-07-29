@@ -11,9 +11,11 @@ npm install screenpool
 npx screenpool setup
 ```
 
-**Requirements:** Node.js 20+ and a Chromium binary (system Chrome/Chromium, downloaded via `npx screenpool setup`, or installed via `npx @puppeteer/browsers install chrome@stable`).
+**Requirements:** Node.js 20+.
 
-`puppeteer-core` and `@puppeteer/browsers` are included — no bundled browser download.
+Screenpool automatically discovers installed Chrome/Chromium binaries on **macOS**, **Linux**, **Windows**, and `PATH`. If no binary is found on your system, Screenpool automatically downloads `chrome@stable` into `~/.screenpool/browser` on first run (zero-config setup).
+
+`puppeteer-core` and `@puppeteer/browsers` are included out of the box.
 
 ## Quick start
 
@@ -21,7 +23,6 @@ npx screenpool setup
 import { ScreenPool } from "screenpool";
 
 const pool = new ScreenPool({
-  browser: "chrome@stable",
   poolSize: 4,
   memory: { limitMb: 512 },
 });
@@ -43,14 +44,15 @@ await pool.stop();
 
 ## Browser options
 
-| Method | Example |
-|--------|---------|
-| System path | `{ executablePath: "/usr/bin/chromium" }` |
-| @puppeteer/browsers | `{ browser: "chrome@stable" }` |
-| Env fallback | `CHROME_PATH`, `PUPPETEER_EXECUTABLE_PATH` |
-| Remote WebSockets | `{ browserWSEndpoint: "ws://127.0.0.1:9222/devtools/browser/..." }` |
-| Remote URL | `{ browserURL: "http://localhost:9222" }` |
-| Custom Instance | `{ browserInstance: existingBrowser }` |
+| Method | Example | Description |
+|--------|---------|-------------|
+| Auto-discovery (default) | `{}` | Automatically detects system Chrome/Chromium, PATH, or auto-downloads `chrome@stable` |
+| System path | `{ executablePath: "/usr/bin/chromium" }` | Explicit path to a browser binary |
+| @puppeteer/browsers | `{ browser: "chrome@stable" }` | Downloads or resolves specified browser channel |
+| Env fallback | `CHROME_PATH`, `PUPPETEER_EXECUTABLE_PATH` | Environment variable overrides |
+| Remote WebSockets | `{ browserWSEndpoint: "ws://127.0.0.1:9222/devtools/browser/..." }` | Connects to existing browser process |
+| Remote URL | `{ browserURL: "http://localhost:9222" }` | Connects via local debugging HTTP URL |
+| Custom Instance | `{ browserInstance: existingBrowser }` | Reuses existing Puppeteer `Browser` instance |
 
 ## HTTP server
 

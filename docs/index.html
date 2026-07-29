@@ -42,6 +42,7 @@
         <a href="#api-reference" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">API Reference</a>
         <a href="#security" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Security (SSRF)</a>
         <a href="#http-server" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">HTTP Server</a>
+        <a href="#mcp-server" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">MCP Server</a>
         <a href="#cli" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">CLI</a>
         <a href="#architecture" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Architecture</a>
         <a href="#development" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Development</a>
@@ -85,7 +86,7 @@
             <li>You need bounded memory and CPU resource limits</li>
             <li>Rendering hundreds of screenshots or PDFs concurrently</li>
             <li>Scraping and extracting structured data with full JS execution</li>
-            <li>Integrating with existing browsers via remote-debugging</li>
+            <li>Integrating with AI coding tools via stdio MCP protocol</li>
           </ul>
         </div>
         <div class="rounded-xl border border-stone-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-4">
@@ -104,12 +105,14 @@
       <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Features</h2>
       <ul class="list-disc pl-5 text-slate-600 dark:text-slate-400 space-y-3">
         <li><strong class="text-slate-800 dark:text-slate-200">Fixed tab budget</strong> — Launches a single browser process and keeps context tabs open. No per-job process creation.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">Model Context Protocol (MCP) Server</strong> — Built-in stdio MCP server for AI coding assistants (Claude Code, Cursor, VS Code, Antigravity, etc.) with 6 tools.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">Cross-Platform Auto-Discovery &amp; Auto-Install</strong> — Automatically detects system Chrome/Chromium on macOS, Linux, Windows, and PATH, with zero-config auto-download fallback.</li>
         <li><strong class="text-slate-800 dark:text-slate-200">Reset after jobs</strong> — Clears cookies, local headers, viewport overrides, custom styles, and navigates to <code>about:blank</code> to free up DOM nodes.</li>
         <li><strong class="text-slate-800 dark:text-slate-200">Remote Debugging & Connection</strong> — Connects to existing Chrome/Chromium instances via WebSocket (<code>browserWSEndpoint</code>), HTTP URL (<code>browserURL</code>), or passes an existing Puppeteer <code>Browser</code> directly.</li>
         <li><strong class="text-slate-800 dark:text-slate-200">Data Extraction</strong> — Supports structured data extraction using Pipsel DSL rules.</li>
         <li><strong class="text-slate-800 dark:text-slate-200">SSRF Guard</strong> — Disallows local networks, loopbacks, and metadata IPs by default.</li>
         <li><strong class="text-slate-800 dark:text-slate-200">V8 Heap & RSS limit</strong> — Monitors worker RSS memory and rejects jobs or recycles workers when limits are exceeded.</li>
-        <li><strong class="text-slate-800 dark:text-slate-200">HTTP Daemon & CLI UI</strong> — Includes a Hono-powered HTTP server and an admin panel GUI.</li>
+        <li><strong class="text-slate-800 dark:text-slate-200">HTTP Daemon & CLI UI</strong> — Includes a Hono-powered HTTP server, daemon management (unitup), and an admin panel GUI.</li>
       </ul>
     </section>
 
@@ -117,7 +120,7 @@
       <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Installation</h2>
       <p class="text-slate-600 dark:text-slate-400 mb-3">Requires <strong class="text-slate-800 dark:text-slate-200">Node.js 20+</strong>.</p>
       <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-4"><code class="language-bash">npm install screenpool</code></pre>
-      <p class="text-slate-500 text-xs">Note: You must have a Chromium executable available on your system, or install it using <code>npx @puppeteer/browsers install chrome@stable</code>.</p>
+      <p class="text-slate-500 text-xs">Note: Screenpool automatically discovers installed Chrome/Chromium on macOS, Linux, Windows, or PATH. If no browser is found, it automatically downloads <code>chrome@stable</code> into <code>~/.screenpool/browser</code> on first run.</p>
     </section>
 
     <section id="quick-start" class="doc-section mb-14">
@@ -318,10 +321,63 @@ await server.listen();</code></pre>
       </div>
     </section>
 
+    <section id="mcp-server" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Model Context Protocol (MCP) Server</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4">
+        Screenpool includes built-in Model Context Protocol (MCP) server capabilities over stdio. This enables AI coding assistants (Claude Code, Cursor, VS Code MCP clients, Antigravity, etc.) to perform web rendering, screenshot capture, PDF generation, HTML extraction, and health monitoring.
+      </p>
+
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Quick Run</h3>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-6"><code class="language-bash"># Run MCP server via npx
+npx screenpool mcp
+
+# Run using installed binary
+screenpool mcp
+
+# Standalone binary
+screenpool-mcp</code></pre>
+
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">MCP Tools</h3>
+      <div class="overflow-x-auto mb-6">
+        <table class="w-full text-sm">
+          <thead><tr><th>Tool Name</th><th>Description</th></tr></thead>
+          <tbody class="text-slate-600 dark:text-slate-400">
+            <tr><td><code>screenpool_screenshot</code></td><td>Capture web page screenshot (png, jpeg, webp, fullPage, viewport, selector).</td></tr>
+            <tr><td><code>screenpool_pdf</code></td><td>Render web page as PDF (A4, Letter, landscape, margins).</td></tr>
+            <tr><td><code>screenpool_html</code></td><td>Extract client-side rendered HTML after JS execution (with truncation support).</td></tr>
+            <tr><td><code>screenpool_metadata</code></td><td>Extract page title, meta description, and canonical URL.</td></tr>
+            <tr><td><code>screenpool_health</code></td><td>View worker pool health status, active jobs, uptime, and queue length.</td></tr>
+            <tr><td><code>screenpool_capabilities</code></td><td>Inspect supported formats, tool list, and version information.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Client Configuration Example</h3>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-6"><code class="language-json">{
+  "mcpServers": {
+    "screenpool": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "screenpool",
+        "mcp",
+        "--pool-size",
+        "3",
+        "--timeout",
+        "30000"
+      ]
+    }
+  }
+}</code></pre>
+    </section>
+
     <section id="cli" class="doc-section mb-14">
       <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">CLI Reference</h2>
-      <p class="text-slate-600 dark:text-slate-400 mb-4">Command line interface tools for quick scripts and running daemons:</p>
-      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-8"><code class="language-bash"># Take a screenshot and write to out.png
+      <p class="text-slate-600 dark:text-slate-400 mb-4">Command line interface tools for quick scripts, daemons, and MCP server:</p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-8"><code class="language-bash"># Start MCP Server for AI tools over stdio
+screenpool mcp --pool-size 3 --timeout 30000
+
+# Take a screenshot and write to out.png
 screenpool screenshot https://example.com --out out.png --width 1280 --height 720
 
 # Connect to an existing browser via remote debugging and take a screenshot

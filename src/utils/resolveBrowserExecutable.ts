@@ -265,22 +265,77 @@ async function resolveFromEnvOrSystem(): Promise<string | undefined> {
     }
   }
 
-  for (const path of SYSTEM_PATHS) {
+  // Check cache directories for any previously installed browser
+  for (const cacheDir of getSearchCacheDirs()) {
+    try {
+      const { getInstalledBrowsers } = await import('@puppeteer/browsers');
+      const installed = await getInstalledBrowsers({ cacheDir });
+      for (const entry of installed) {
+        if (entry.executablePath && (await fileExists(entry.executablePath))) {
+          return entry.executablePath;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Check candidate system paths for Chrome / Chromium / Edge / Brave
+  const candidatePaths = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    join(homedir(), 'Applications', 'Google Chrome.app', 'Contents', 'MacOS', 'Google Chrome'),
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    join(homedir(), 'Applications', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+    '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome-unstable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
+    '/snap/bin/google-chrome',
+    '/usr/bin/brave-browser',
+    ...SYSTEM_PATHS,
+  ];
+
+  for (const path of candidatePaths) {
     if (await fileExists(path)) {
       return path;
     }
   }
+
+  // Check PATH for binary (which / where)
+  try {
+    const { execSync } = await import('node:child_process');
+    const { platform: osPlatform } = await import('node:os');
+    const cmd = osPlatform() === 'win32' ? 'where' : 'which';
+    const bins = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'chrome', 'brave-browser'];
+    for (const bin of bins) {
+      try {
+        const output = execSync(`${cmd} ${bin}`, { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
+        const firstLine = output.split(/\r?\n/)[0]?.trim();
+        if (firstLine && (await fileExists(firstLine))) {
+          return firstLine;
+        }
+      } catch {}
+    }
+  } catch {}
 
   try {
     const { computeSystemExecutablePath, detectBrowserPlatform, Browser, ChromeReleaseChannel } =
       await import('@puppeteer/browsers');
     const platform = detectBrowserPlatform();
     if (platform) {
-      return computeSystemExecutablePath({
+      const computed = computeSystemExecutablePath({
         browser: Browser.CHROME,
         channel: ChromeReleaseChannel.STABLE,
         platform,
       });
+      if (await fileExists(computed)) {
+        return computed;
+      }
     }
   } catch {
     // optional peer not available
@@ -291,7 +346,7 @@ async function resolveFromEnvOrSystem(): Promise<string | undefined> {
 
 /**
  * Resolve Chromium executable path from config, env, or system.
- * Priority: executablePath > browser cache > env > system paths
+ * Priority: executablePath > browser cache > env > system paths > auto-install fallback
  */
 export async function resolveBrowserExecutable(config: ScreenPoolConfig): Promise<string> {
   if (config.executablePath && config.browser) {
@@ -306,7 +361,13 @@ export async function resolveBrowserExecutable(config: ScreenPoolConfig): Promis
   }
 
   if (config.browser) {
-    return resolveFromBrowsersPackage(config);
+    try {
+      return await resolveFromBrowsersPackage(config);
+    } catch (err) {
+      // If specified browser fails to resolve, attempt auto-setup
+      const setupRes = await setupBrowser({ browser: config.browser });
+      return setupRes.executablePath;
+    }
   }
 
   const fallback = await resolveFromEnvOrSystem();
@@ -314,7 +375,15 @@ export async function resolveBrowserExecutable(config: ScreenPoolConfig): Promis
     return fallback;
   }
 
-  throw new BrowserNotFoundError();
+  // Auto-install fallback: automatically download chrome@stable if no browser exists anywhere on the system
+  try {
+    const setupRes = await setupBrowser({ browser: 'chrome@stable' });
+    return setupRes.executablePath;
+  } catch (err: any) {
+    throw new BrowserNotFoundError(
+      `No Chrome/Chromium installation found on system, and auto-download failed: ${err?.message || err}`,
+    );
+  }
 }
 
 export interface SetupBrowserOptions {
