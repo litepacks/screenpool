@@ -582,7 +582,30 @@ async function main(): Promise<void> {
         }
       }
     )
-    .demandCommand(1, 'You must specify a command (setup, screenshot, pdf, extract, server, daemon, or ui)');
+    .command(
+      'mcp',
+      'Start the Screenpool Model Context Protocol (MCP) server',
+      (y) => y
+        .option('browser', { alias: 'b', type: 'string', describe: 'Browser shorthand or name (chromium | chrome)' })
+        .option('executable-path', { type: 'string', describe: 'Explicit path to Chromium browser binary' })
+        .option('pool-size', { alias: 'p', type: 'number', describe: 'Number of worker pages in pool' })
+        .option('timeout', { alias: 't', type: 'number', describe: 'Navigation and render timeout in ms' })
+        .option('headless', { type: 'boolean', default: true, describe: 'Run browser in headless mode' })
+        .option('max-pages', { type: 'number', describe: 'Maximum queue size for render jobs' })
+        .option('artifacts-dir', { type: 'string', describe: 'Directory for saving output screenshots/PDFs' })
+        .option('log-level', { type: 'string', choices: ['silent', 'error', 'warn', 'info', 'debug'], describe: 'Stderr logging level' })
+        .option('config', { alias: 'c', type: 'string', describe: 'Path to configuration file' })
+        .option('allow-private-network', { type: 'boolean', describe: 'Allow navigation to private network addresses' }),
+      async () => {
+        try {
+          const { runMcpCli } = await import('./mcp-cli.js');
+          await runMcpCli(process.argv.slice(3));
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .demandCommand(1, 'You must specify a command (setup, screenshot, pdf, extract, server, daemon, ui, or mcp)');
 
   await parser.parse();
 }

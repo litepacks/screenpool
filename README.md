@@ -80,6 +80,172 @@ screenpool server --port 3000 --pool-size 4 --browser chrome@stable
 screenpool screenshot https://example.com --browser-url http://localhost:9222 --out shot.webp
 ```
 
+## Model Context Protocol (MCP) Server
+
+Screenpool provides built-in Model Context Protocol (MCP) server support, allowing AI coding assistants (Claude Code, Cursor, VS Code MCP clients, Antigravity, etc.) to perform web rendering, screenshot capture, PDF generation, HTML extraction, and health checks over standard input/output (stdio).
+
+### Quick Run
+
+```bash
+# Run MCP server using npx
+npx screenpool mcp
+
+# Or using installed binary
+screenpool mcp
+
+# Standalone binary
+screenpool-mcp
+```
+
+### Options
+
+```text
+--browser <chromium|chrome>        Browser shorthand or executable name
+--executable-path <path>           Explicit path to Chromium executable
+--pool-size <number>               Number of worker pages in pool (default: 3)
+--timeout <milliseconds>          Render and navigation timeout in ms (default: 30000)
+--headless / --no-headless         Run browser in headless mode (default: true)
+--max-pages <number>               Maximum queue size for render jobs
+--artifacts-dir <path>             Directory to save screenshot/PDF outputs (default: .screenpool/artifacts)
+--log-level <level>                Stderr logging level (silent|error|warn|info|debug)
+--config <path>                    Path to custom configuration file
+--allow-private-network            Allow navigation to localhost & private network IPs (SSRF bypass)
+```
+
+### Client Configuration Examples
+
+#### Standard MCP Stdio Config (Claude Code, Cursor, VS Code)
+
+```json
+{
+  "mcpServers": {
+    "screenpool": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "screenpool",
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Global Installation Config
+
+```json
+{
+  "mcpServers": {
+    "screenpool": {
+      "command": "screenpool",
+      "args": [
+        "mcp",
+        "--pool-size",
+        "4",
+        "--timeout",
+        "30000"
+      ]
+    }
+  }
+}
+```
+
+#### Local Repository Config
+
+```json
+{
+  "mcpServers": {
+    "screenpool": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/screenpool/dist/cli.js",
+        "mcp"
+      ],
+      "env": {
+        "SCREENPOOL_POOL_SIZE": "3",
+        "SCREENPOOL_HEADLESS": "true",
+        "SCREENPOOL_LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+### MCP Tools List
+
+| Tool Name | Description |
+|-----------|-------------|
+| `screenpool_screenshot` | Capture web page screenshot (png, jpeg, webp, fullPage, viewport, selector). |
+| `screenpool_pdf` | Render web page as PDF (A4, Letter, landscape, margins, background). |
+| `screenpool_html` | Extract fully rendered HTML after JavaScript execution (with truncation support). |
+| `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL). |
+| `screenpool_health` | View worker pool health status, active jobs, uptime, and queue length. |
+| `screenpool_capabilities` | Inspect supported features, tool list, and available formats. |
+
+### Configuration & Environment Variables
+
+Screenpool loads options in order of precedence: **CLI Arguments > Environment Variables > Config File > Default Values**.
+
+Config file candidates: `screenpool.config.json`, `.screenpoolrc`, `.screenpoolrc.json` or `--config <path>`.
+
+Example `screenpool.config.json`:
+
+```json
+{
+  "browser": "chromium",
+  "poolSize": 3,
+  "timeout": 30000,
+  "headless": true,
+  "artifactsDir": ".screenpool/artifacts",
+  "security": {
+    "allowPrivateNetwork": false,
+    "allowedDomains": ["example.com", "*.example.com"],
+    "deniedDomains": ["admin.example.com"]
+  },
+  "mcp": {
+    "enabledTools": [
+      "screenpool_screenshot",
+      "screenpool_pdf",
+      "screenpool_html",
+      "screenpool_health",
+      "screenpool_capabilities"
+    ]
+  }
+}
+```
+
+Environment variables:
+- `SCREENPOOL_BROWSER=chromium`
+- `SCREENPOOL_POOL_SIZE=3`
+- `SCREENPOOL_TIMEOUT=30000`
+- `SCREENPOOL_HEADLESS=true`
+- `SCREENPOOL_ARTIFACTS_DIR=.screenpool/artifacts`
+- `SCREENPOOL_ALLOW_PRIVATE_NETWORK=false`
+- `SCREENPOOL_LOG_LEVEL=info`
+
+### Programmatic Usage
+
+```ts
+import { createScreenpoolMcpServer } from "screenpool/mcp";
+
+const server = await createScreenpoolMcpServer({
+  config: {
+    poolSize: 3,
+    headless: true,
+  },
+});
+
+await server.startStdio();
+```
+
+### MCP Troubleshooting
+
+- **Chromium executable not found**: Run `npx screenpool setup` or pass `--executable-path /path/to/chromium`.
+- **MCP server does not start / JSON-RPC parsing errors**: Ensure application logs are not written to `stdout`. Screenpool logs exclusively to `stderr`.
+- **Private network URL blocked**: Add `--allow-private-network` or `"allowPrivateNetwork": true` in `screenpool.config.json`.
+- **Timeout error**: Increase timeout using `--timeout 45000` or adjust job queue sizes.
+
+
 ### Background Server Management (unitup)
 
 Start and supervise the ScreenPool server in the background using systemd native user services via [unitup](https://litepacks.github.io/unitup/):

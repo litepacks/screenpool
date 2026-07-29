@@ -13,10 +13,15 @@
     "./http": {
       "types": "./dist/http/createScreenPoolServer.d.ts",
       "import": "./dist/http/createScreenPoolServer.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
     }
   },
   "bin": {
-    "screenpool": "./dist/cli.js"
+    "screenpool": "./dist/cli.js",
+    "screenpool-mcp": "./dist/mcp-cli.js"
   },
   "files": [
     "dist"
@@ -37,12 +42,14 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@puppeteer/browsers": "^2.8.0",
     "hono": "^4.7.0",
     "pipsel": "^0.0.3",
     "puppeteer-core": "^24.0.0",
     "unitup": "^0.1.0",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
