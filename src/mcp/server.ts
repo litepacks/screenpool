@@ -53,8 +53,17 @@ export class ScreenpoolMcpServer {
   async ensurePoolStarted(): Promise<void> {
     if (!this.isOwnPool) return;
     if (!this.poolStartPromise) {
+      const start = Date.now();
       this.logger.info(`Starting ScreenPool engine (poolSize=${this.config.poolSize}, browser=${this.config.browser})...`);
-      this.poolStartPromise = this.pool.start();
+      this.poolStartPromise = this.pool
+        .start()
+        .then(() => {
+          this.logger.info(`ScreenPool engine pre-warmed successfully in ${Date.now() - start}ms.`);
+        })
+        .catch((err) => {
+          this.poolStartPromise = null;
+          throw err;
+        });
     }
     await this.poolStartPromise;
   }
@@ -126,15 +135,25 @@ export class ScreenpoolMcpServer {
     const sigintListener = () => { void handleShutdown('SIGINT'); };
     const sigtermListener = () => { void handleShutdown('SIGTERM'); };
     const stdinEndListener = () => { void handleShutdown('STDIN_END'); };
+    const uncaughtListener = (err: any) => {
+      this.logger.error(`Uncaught exception: ${err?.stack || err?.message || err}`);
+    };
+    const unhandledRejectionListener = (reason: any) => {
+      this.logger.error(`Unhandled rejection: ${reason?.stack || reason?.message || reason}`);
+    };
 
     process.on('SIGINT', sigintListener);
     process.on('SIGTERM', sigtermListener);
     process.stdin.on('end', stdinEndListener);
+    process.on('uncaughtException', uncaughtListener);
+    process.on('unhandledRejection', unhandledRejectionListener);
 
     this.removeSignalListeners = () => {
       process.removeListener('SIGINT', sigintListener);
       process.removeListener('SIGTERM', sigtermListener);
       process.stdin.removeListener('end', stdinEndListener);
+      process.removeListener('uncaughtException', uncaughtListener);
+      process.removeListener('unhandledRejection', unhandledRejectionListener);
     };
   }
 

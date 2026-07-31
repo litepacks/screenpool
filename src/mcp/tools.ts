@@ -220,7 +220,6 @@ export function registerMcpTools(
         const requestId = randomBytes(4).toString('hex');
         const start = Date.now();
         try {
-          if (ensureStarted) await ensureStarted();
           const res = await handleHealth(pool, config);
           logger.logRequest(requestId, 'screenpool_health', 'success', Date.now() - start);
           return {
