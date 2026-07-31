@@ -87,7 +87,6 @@ export async function handleHtml(
     url: input.url,
     rules,
     waitUntil: input.waitUntil as any,
-    waitForTimeout: input.timeout,
   });
 
   const durationMs = Date.now() - start;
@@ -125,7 +124,7 @@ export async function handleMetadata(
   const res = await pool.extract({
     url: input.url,
     rules,
-    waitForTimeout: input.timeout,
+    waitUntil: 'domcontentloaded',
   });
 
   const durationMs = Date.now() - start;

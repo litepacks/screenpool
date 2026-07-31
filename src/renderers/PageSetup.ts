@@ -11,11 +11,12 @@ import { NavigationError } from '../errors.js';
 
 type RenderOptions = ScreenshotOptions | PdfOptions;
 
-const WAIT_UNTIL_MAP: Record<WaitUntil, PuppeteerLifeCycleEvent> = {
+const WAIT_UNTIL_MAP: Record<string, PuppeteerLifeCycleEvent> = {
   load: 'load',
   domcontentloaded: 'domcontentloaded',
   networkidle0: 'networkidle0',
   networkidle2: 'networkidle2',
+  networkidle: 'networkidle2',
 };
 
 const RESOURCE_TYPE_MAP: Record<BlockResourceType, string> = {

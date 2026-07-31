@@ -154,6 +154,7 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
       pool,
       {
         url: `${baseUrl}/test-page`,
+        timeout: 10000,
       },
       config,
     );
@@ -161,6 +162,22 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     expect(res.success).toBe(true);
     expect(res.title).toBe('MCP Test Page');
     expect(res.description).toBe('Testing Screenpool MCP Server integration');
+  });
+
+  it('extracts HTML with timeout and waitUntil networkidle options', async () => {
+    const config = mcpServer.currentConfig;
+    const res = await handleHtml(
+      pool,
+      {
+        url: `${baseUrl}/test-page`,
+        timeout: 10000,
+        waitUntil: 'networkidle' as any,
+      },
+      config,
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.html).toContain('MCP Test Page');
   });
 
   it('returns pool health stats via MCP health handler', async () => {
