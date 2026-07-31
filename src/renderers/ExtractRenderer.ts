@@ -14,8 +14,11 @@ export async function renderExtract(
   await setupPage(page, options, config);
 
   const html = await page.content();
+  const pageUrl = page.url();
+  const currentUrl = pageUrl && pageUrl !== 'about:blank' ? pageUrl : options.url;
+
   const ast = parse(options.rules);
-  const data = execute(ast, { html, url: options.url });
+  const data = execute(ast, { html, url: currentUrl });
 
   const buffer = Buffer.from(JSON.stringify(data));
 

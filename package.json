@@ -1,6 +1,6 @@
 {
   "name": "screenpool",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Lightweight in-process rendering pool for Node.js — screenshots and PDFs via a fixed Chromium worker pool",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,8 +20,8 @@
     }
   },
   "bin": {
-    "screenpool": "./dist/cli.js",
-    "screenpool-mcp": "./dist/mcp-cli.js"
+    "screenpool": "dist/cli.js",
+    "screenpool-mcp": "dist/mcp-cli.js"
   },
   "files": [
     "dist"

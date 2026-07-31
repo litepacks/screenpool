@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validateUrl,
   validateRenderInput,
+  validateExtractOptions,
 } from '../src/security/SecurityGuard.js';
 import { resolveConfig } from '../src/types.js';
 import {
@@ -70,5 +71,60 @@ describe('SecurityGuard', () => {
 
   it('allows public https URLs', () => {
     expect(() => validateUrl('https://example.com', config)).not.toThrow();
+  });
+
+  describe('validateExtractOptions', () => {
+    it('throws if rules is missing, empty, or whitespace', () => {
+      expect(() => validateExtractOptions({ html: '<h1>test</h1>', rules: '' }, config)).toThrow(
+        InvalidRenderInputError,
+      );
+      expect(() => validateExtractOptions({ html: '<h1>test</h1>', rules: '   ' }, config)).toThrow(
+        InvalidRenderInputError,
+      );
+      expect(() => validateExtractOptions({ html: '<h1>test</h1>' } as any, config)).toThrow(
+        InvalidRenderInputError,
+      );
+    });
+
+    it('throws InvalidRenderInputError for syntactically invalid Pipsel DSL rules', () => {
+      expect(() =>
+        validateExtractOptions({ html: '<h1>test</h1>', rules: 'invalid syntax {{{' }, config),
+      ).toThrow(InvalidRenderInputError);
+    });
+
+    it('throws InvalidRenderInputError for unknown pipe functions', () => {
+      expect(() =>
+        validateExtractOptions({ html: '<h1>test</h1>', rules: 'title: "h1" | unknown_pipe_name' }, config),
+      ).toThrow(InvalidRenderInputError);
+    });
+
+    it('passes for valid Pipsel DSL rules', () => {
+      expect(() =>
+        validateExtractOptions(
+          {
+            html: '<h1>test</h1>',
+            rules: `
+              title: "h1" | text | trim
+              items[]: ".item" {
+                name: ".name" | text
+              }
+            `,
+          },
+          config,
+        ),
+      ).not.toThrow();
+    });
+
+    it('validates URL safety when URL is provided', () => {
+      expect(() =>
+        validateExtractOptions(
+          {
+            url: 'http://localhost:8080/data',
+            rules: 'title: "h1" | text',
+          },
+          config,
+        ),
+      ).toThrow(SecurityBlockedUrlError);
+    });
   });
 });

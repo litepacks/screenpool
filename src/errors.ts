@@ -126,5 +126,23 @@ export class InvalidOutputPathError extends ScreenPoolError {
 
 /** Check whether an error is a ScreenPool typed error. */
 export function isScreenPoolError(error: unknown): error is ScreenPoolError {
-  return error instanceof ScreenPoolError;
+  return (
+    error instanceof ScreenPoolError ||
+    (error instanceof Error &&
+      (error.name === 'ScreenPoolError' ||
+        error.name === 'InvalidRenderInputError' ||
+        error.name === 'SecurityBlockedUrlError' ||
+        error.name === 'QueueOverflowError' ||
+        error.name === 'RenderTimeoutError' ||
+        error.name === 'NavigationError' ||
+        error.name === 'BrowserCrashedError' ||
+        error.name === 'WorkerCrashedError' ||
+        error.name === 'MemoryLimitExceededError' ||
+        error.name === 'BrowserNotInstalledError' ||
+        error.name === 'BrowserNotFoundError' ||
+        error.name === 'BrowserResolveError' ||
+        error.name === 'InvalidOutputPathError' ||
+        error.name === 'ScreenPoolNotStartedError' ||
+        error.name === 'ScreenPoolStoppingError'))
+  );
 }

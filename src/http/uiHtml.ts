@@ -259,8 +259,10 @@ export const UI_HTML = `<!DOCTYPE html>
         const payload = {
           url: state.extract.url,
           rules: state.extract.rules,
-          width: Number(state.extract.width),
-          height: Number(state.extract.height)
+          viewport: {
+            width: Number(state.extract.width),
+            height: Number(state.extract.height)
+          }
         };
 
         const res = await fetch('/extract', {

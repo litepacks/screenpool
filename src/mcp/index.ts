@@ -7,3 +7,5 @@ export type { McpErrorCode, McpErrorDetails } from './errors.js';
 export { validateTargetUrl } from './security.js';
 export { McpLogger } from './logger.js';
 export type { LogLevel } from './logger.js';
+export { saveArtifactBuffer, resolveArtifactsDir, generateArtifactFilename } from './artifacts.js';
+export type { ArtifactResult } from './artifacts.js';

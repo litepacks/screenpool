@@ -7,6 +7,7 @@ import {
   SecurityBlockedUrlError,
   RenderTimeoutError,
   ScreenPoolNotStartedError,
+  InvalidRenderInputError,
 } from '../src/errors.js';
 import type { PoolStats, RenderResult } from '../src/types.js';
 
@@ -93,5 +94,21 @@ describe('HTTP adapter', () => {
     expect(res.headers.get('X-Job-Id')).toBe('job-123');
     const body = await res.json();
     expect(body).toEqual({ title: 'Test' });
+  });
+
+  it('POST /extract returns 400 when validation fails', async () => {
+    const pool = mockPool({
+      extract: vi.fn(async () => {
+        throw new InvalidRenderInputError('Invalid Pipsel DSL rules: Unknown pipe function');
+      }),
+    } as any);
+    const app = createScreenPoolApp(pool);
+    const res = await app.request('http://localhost/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com', rules: 'title: "h1" | invalid_pipe' }),
+    });
+
+    expect(res.status).toBe(400);
   });
 });

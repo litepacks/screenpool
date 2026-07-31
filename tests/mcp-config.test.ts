@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { resolveMcpConfig } from '../src/mcp/config.js';
+import { resolveArtifactsDir } from '../src/mcp/artifacts.js';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 describe('MCP Config Resolution Unit Tests', () => {
   const originalEnv = { ...process.env };
@@ -52,5 +55,17 @@ describe('MCP Config Resolution Unit Tests', () => {
     expect(config.poolSize).toBe(10);
     expect(config.timeout).toBe(12000);
     expect(config.security.allowPrivateNetwork).toBe(true);
+  });
+
+  it('resolves artifacts dir correctly when starting with tilde or root CWD', () => {
+    expect(resolveArtifactsDir('~/.screenpool/artifacts')).toBe(join(homedir(), '.screenpool/artifacts'));
+
+    const originalCwd = process.cwd;
+    process.cwd = () => '/';
+    try {
+      expect(resolveArtifactsDir('.screenpool/artifacts')).toBe(join(homedir(), '.screenpool/artifacts'));
+    } finally {
+      process.cwd = originalCwd;
+    }
   });
 });

@@ -1,5 +1,6 @@
 import type { ResolvedScreenPoolConfig, ScreenshotOptions, PdfOptions, ExtractOptions } from '../types.js';
 import { InvalidRenderInputError, SecurityBlockedUrlError } from '../errors.js';
+import { lint, parse } from 'pipsel';
 
 type RenderInput = Pick<ScreenshotOptions | PdfOptions, 'url' | 'html'>;
 
@@ -153,11 +154,27 @@ export function validateExtractOptions(
   options: ExtractOptions,
   config: ResolvedScreenPoolConfig,
 ): void {
-  if (!options.rules) {
+  if (!options.rules || typeof options.rules !== 'string' || !options.rules.trim()) {
     throw new InvalidRenderInputError('rules is required for extraction.');
   }
+
   validateRenderInput(options);
   if (options.url) {
     validateUrl(options.url, config);
+  }
+
+  try {
+    const diagnostics = lint(options.rules);
+    const errors = diagnostics.filter((d) => d.severity === 'error');
+    if (errors.length > 0) {
+      const msg = errors.map((e) => `[line ${e.line}:${e.column}] ${e.message}`).join('; ');
+      throw new InvalidRenderInputError(`Invalid Pipsel DSL rules: ${msg}`);
+    }
+    parse(options.rules);
+  } catch (err: any) {
+    if (err instanceof InvalidRenderInputError) {
+      throw err;
+    }
+    throw new InvalidRenderInputError(`Invalid Pipsel DSL rules: ${err.message || String(err)}`);
   }
 }
