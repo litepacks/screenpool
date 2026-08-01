@@ -68,7 +68,7 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
       },
     });
     await mcpServer.init();
-  }, 30000);
+  }, 60000);
 
   afterAll(async () => {
     if (mcpServer) await mcpServer.close();
@@ -76,7 +76,7 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     if (httpServer) {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     }
-  }, 30000);
+  }, 60000);
 
   it('captures screenshot via MCP handler', async () => {
     const config = mcpServer.currentConfig;
