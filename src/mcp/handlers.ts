@@ -2,7 +2,7 @@ import type { ScreenPool } from '../ScreenPool.js';
 import type { ScreenpoolMcpConfig } from './config.js';
 import { validateTargetUrl } from './security.js';
 import { saveArtifactBuffer } from './artifacts.js';
-import type { ScreenshotInput, PdfInput, HtmlInput, MetadataInput } from './schemas.js';
+import type { ScreenshotInput, PdfInput, HtmlInput, MetadataInput, HelpInput } from './schemas.js';
 
 export async function handleScreenshot(
   pool: ScreenPool,
@@ -178,6 +178,7 @@ export async function handleCapabilities(
     'screenpool_metadata',
     'screenpool_health',
     'screenpool_capabilities',
+    'screenpool_help',
   ];
 
   return {
@@ -202,5 +203,133 @@ export async function handleCapabilities(
         'sanitizer',
       ],
     },
+  };
+}
+
+export async function handleHelp(input: HelpInput) {
+  const topic = input.topic || 'all';
+
+  const toolsDoc = {
+    screenpool_screenshot: {
+      description: 'Capture web page screenshot in png, jpeg, or webp formats with full-page, element selector, and optional diagnostics.',
+      parameters: {
+        url: 'string (required)',
+        fullPage: 'boolean (optional)',
+        format: 'png | jpeg | webp (default: png)',
+        quality: 'number 0-100 (for jpeg/webp)',
+        viewport: '{ width: number, height: number, deviceScaleFactor?: number }',
+        waitUntil: 'load | domcontentloaded | networkidle0 | networkidle2',
+        selector: 'string (CSS selector for specific element screenshot)',
+        diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
+      },
+    },
+    screenpool_pdf: {
+      description: 'Render web page as PDF document with custom margins, landscape mode, and optional diagnostics.',
+      parameters: {
+        url: 'string (required)',
+        format: 'A4 | Letter | Legal | Tabloid | A3 | A5 (default: A4)',
+        landscape: 'boolean (optional)',
+        printBackground: 'boolean (default: true)',
+        margin: '{ top?: string, right?: string, bottom?: string, left?: string }',
+        scale: 'number (0.1 to 2)',
+        waitUntil: 'load | domcontentloaded | networkidle0 | networkidle2',
+        diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
+      },
+    },
+    screenpool_html: {
+      description: 'Extract fully rendered HTML content after JavaScript execution.',
+      parameters: {
+        url: 'string (required)',
+        waitUntil: 'load | domcontentloaded | networkidle0 | networkidle2',
+        maxChars: 'number (max HTML character truncation limit, default 500,000)',
+        diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
+      },
+    },
+    screenpool_metadata: {
+      description: 'Extract page title, description meta tag, canonical link, and final URL.',
+      parameters: {
+        url: 'string (required)',
+        diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
+      },
+    },
+    screenpool_health: {
+      description: 'Inspect worker pool status, active worker count, queue length, and uptime.',
+      parameters: {},
+    },
+    screenpool_capabilities: {
+      description: 'List supported features, tool list, formats, and diagnostics presets/outputs.',
+      parameters: {},
+    },
+    screenpool_help: {
+      description: 'Get structured documentation, usage instructions, diagnostics presets guide, and example payloads.',
+      parameters: {
+        topic: 'all | tools | diagnostics | formats | examples',
+      },
+    },
+  };
+
+  const diagnosticsDoc = {
+    presets: {
+      errors: 'Captures critical JS errors, console error logs, network failures, HTTP 4xx/5xx status codes, and error page state snapshots.',
+      standard: 'Default for true. Captures warnings, errors, failed network requests, slow requests (>2000ms), sayfa durumu, hata anında screenshot, HTML ve page-state.',
+      verbose: 'Detailed tracing. Captures all console levels, all network requests/responses, timeline events, navigation/paint performance metrics, and artifact bundles.',
+    },
+    outputs: {
+      summary: 'Returns summary object containing issue counts, top issues, slowest requests, and artifact references.',
+      inline: 'Returns full arrays of console logs, network entries, page error stack traces, and timeline entries directly in response.',
+      artifacts: 'Saves raw diagnostic records and assets to disk artifact bundle folder (.screenpool/diagnostics/run_...).',
+    },
+    sanitization: 'Redacts sensitive headers (Authorization, Cookie, X-API-Key), query parameters (token, secret, apiKey), JSON payload keys, and URL credentials automatically with [REDACTED].',
+  };
+
+  const examplesDoc = {
+    screenshotWithDiagnostics: {
+      url: 'https://example.com',
+      fullPage: true,
+      format: 'webp',
+      diagnostics: {
+        preset: 'standard',
+        output: 'summary',
+      },
+    },
+    pdfWithCustomOptions: {
+      url: 'https://example.com',
+      format: 'A4',
+      landscape: true,
+      margin: { top: '1cm', bottom: '1cm' },
+    },
+    htmlExtraction: {
+      url: 'https://example.com',
+      waitUntil: 'networkidle2',
+      maxChars: 100000,
+    },
+  };
+
+  if (topic === 'tools') {
+    return { topic, tools: toolsDoc };
+  }
+  if (topic === 'diagnostics') {
+    return { topic, diagnostics: diagnosticsDoc };
+  }
+  if (topic === 'examples') {
+    return { topic, examples: examplesDoc };
+  }
+  if (topic === 'formats') {
+    return {
+      topic,
+      formats: {
+        screenshot: ['png', 'jpeg', 'webp'],
+        pdf: ['A4', 'Letter', 'Legal', 'Tabloid', 'A3', 'A5'],
+        viewports: { default: '1280x720', max: '7680x4320' },
+      },
+    };
+  }
+
+  return {
+    topic: 'all',
+    overview: 'Screenpool is a lightweight in-process browser pool for Node.js providing screenshot, PDF, HTML extraction, metadata, health monitoring, and advanced diagnostics.',
+    tools: toolsDoc,
+    diagnostics: diagnosticsDoc,
+    examples: examplesDoc,
   };
 }

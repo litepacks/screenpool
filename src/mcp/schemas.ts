@@ -94,7 +94,16 @@ export const HealthInputSchema = z.object({});
 
 export const CapabilitiesInputSchema = z.object({});
 
+export const HelpInputSchema = z.object({
+  topic: z
+    .enum(['all', 'tools', 'diagnostics', 'formats', 'examples'])
+    .optional()
+    .default('all')
+    .describe('Topic for documentation: "all", "tools", "diagnostics", "formats", or "examples"'),
+});
+
 export type ScreenshotInput = z.infer<typeof ScreenshotInputSchema>;
 export type PdfInput = z.infer<typeof PdfInputSchema>;
 export type HtmlInput = z.infer<typeof HtmlInputSchema>;
 export type MetadataInput = z.infer<typeof MetadataInputSchema>;
+export type HelpInput = z.infer<typeof HelpInputSchema>;

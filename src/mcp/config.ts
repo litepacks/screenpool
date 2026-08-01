@@ -66,6 +66,7 @@ export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFileP
       'screenpool_metadata',
       'screenpool_health',
       'screenpool_capabilities',
+      'screenpool_help',
     ],
   },
 };

@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getChromiumPath, hasChromium } from './helpers/chromium.js';
 import { ScreenPool } from '../src/ScreenPool.js';
 import { ScreenpoolMcpServer } from '../src/mcp/server.js';
-import { handleScreenshot, handlePdf, handleHtml, handleMetadata, handleHealth, handleCapabilities } from '../src/mcp/handlers.js';
+import { handleScreenshot, handlePdf, handleHtml, handleMetadata, handleHealth, handleCapabilities, handleHelp } from '../src/mcp/handlers.js';
 import { validateTargetUrl } from '../src/mcp/security.js';
 
 const chromiumPath = getChromiumPath();
@@ -196,5 +196,16 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     expect(caps.tools).toContain('screenpool_screenshot');
     expect(caps.tools).toContain('screenpool_pdf');
     expect(caps.formats.screenshot).toContain('png');
+  });
+
+  it('returns documentation via MCP help handler', async () => {
+    const helpAll = await handleHelp({ topic: 'all' });
+    expect(helpAll.topic).toBe('all');
+    expect(helpAll.tools.screenpool_screenshot).toBeDefined();
+    expect(helpAll.diagnostics.presets).toBeDefined();
+
+    const helpTools = await handleHelp({ topic: 'tools' });
+    expect(helpTools.topic).toBe('tools');
+    expect(helpTools.tools.screenpool_pdf).toBeDefined();
   });
 });

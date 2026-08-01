@@ -10,6 +10,7 @@ import {
   MetadataInputSchema,
   HealthInputSchema,
   CapabilitiesInputSchema,
+  HelpInputSchema,
 } from './schemas.js';
 import {
   handleScreenshot,
@@ -18,6 +19,7 @@ import {
   handleMetadata,
   handleHealth,
   handleCapabilities,
+  handleHelp,
 } from './handlers.js';
 import { randomBytes } from 'node:crypto';
 
@@ -36,6 +38,7 @@ export function registerMcpTools(
       'screenpool_metadata',
       'screenpool_health',
       'screenpool_capabilities',
+      'screenpool_help',
     ],
   );
 
@@ -273,6 +276,46 @@ export function registerMcpTools(
         } catch (err) {
           const errRes = formatErrorResponse(err);
           logger.logRequest(requestId, 'screenpool_capabilities', 'error', Date.now() - start, errRes.error.message);
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(errRes, null, 2),
+              },
+            ],
+          };
+        }
+      },
+    );
+  }
+
+  // 7. screenpool_help
+  if (enabled.has('screenpool_help')) {
+    server.registerTool(
+      'screenpool_help',
+      {
+        description:
+          'Get structured documentation, usage instructions, diagnostics presets guide, and example payloads for all Screenpool MCP tools.',
+        inputSchema: HelpInputSchema,
+      },
+      async (args) => {
+        const requestId = randomBytes(4).toString('hex');
+        const start = Date.now();
+        try {
+          const res = await handleHelp(args);
+          logger.logRequest(requestId, 'screenpool_help', 'success', Date.now() - start);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(res, null, 2),
+              },
+            ],
+          };
+        } catch (err) {
+          const errRes = formatErrorResponse(err);
+          logger.logRequest(requestId, 'screenpool_help', 'error', Date.now() - start, errRes.error.message);
           return {
             isError: true,
             content: [

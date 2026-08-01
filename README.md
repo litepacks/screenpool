@@ -266,6 +266,7 @@ screenpool-mcp
 | `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL, diagnostics). |
 | `screenpool_health` | View worker pool health status, active jobs, uptime, and queue length. |
 | `screenpool_capabilities` | Inspect supported features, tool list, formats, and diagnostics presets/outputs. |
+| `screenpool_help` | Structured documentation, parameter guides, diagnostics presets, and example payloads. |
 
 #### MCP Tool Request with Diagnostics Example
 
