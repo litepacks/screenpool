@@ -186,7 +186,8 @@ export async function cleanExpiredArtifacts(
         const folderPath = join(rootDir, entry.name);
         try {
           const match = entry.name.match(/^run_(\d+)_/);
-          const folderTime = match ? Number.parseInt(match[1], 10) : (await stat(folderPath)).mtimeMs;
+          const timestampStr = match?.[1];
+          const folderTime = timestampStr ? Number.parseInt(timestampStr, 10) : (await stat(folderPath)).mtimeMs;
           const ageMs = now - folderTime;
           if (ageMs > ttlMs) {
             await rm(folderPath, { recursive: true, force: true });
