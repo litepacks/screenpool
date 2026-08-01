@@ -3,6 +3,7 @@ import type { ScreenpoolMcpConfig } from './config.js';
 import { validateTargetUrl } from './security.js';
 import { saveArtifactBuffer } from './artifacts.js';
 import type { ScreenshotInput, PdfInput, HtmlInput, MetadataInput, HelpInput } from './schemas.js';
+import { VERSION } from '../version.js';
 
 export async function handleScreenshot(
   pool: ScreenPool,
@@ -169,7 +170,7 @@ export async function handleHealth(
 
 export async function handleCapabilities(
   config: ScreenpoolMcpConfig,
-  version = '0.3.0',
+  version = VERSION,
 ) {
   const enabledTools = config.mcp?.enabledTools || [
     'screenpool_screenshot',

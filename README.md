@@ -322,6 +322,21 @@ screenpool-mcp
 }
 ```
 
+### AGENTS.md / AI Guidelines Template
+
+To teach AI coding assistants (Antigravity, Claude Code, Cursor, Windsurf, Copilot) how and when to use Screenpool in your project, copy and paste this snippet into your repository's `AGENTS.md` or `CLAUDE.md` file (see full guide in [docs/AGENTS.md](file:///Users/ahmet/projects/screenpool/docs/AGENTS.md)):
+
+```markdown
+## Screenpool Web Rendering & Diagnostics Guidelines
+
+When performing web automation, visual inspection, PDF generation, dynamic HTML extraction, or web debugging, use Screenpool MCP tools (`screenpool_*`).
+
+- **Visual Inspection**: Use `screenpool_screenshot` (`url`, `fullPage`, `format`, `viewport`) to verify UI layout or visual output.
+- **Web Debugging**: Pass `diagnostics: "standard"` or `"verbose"` when troubleshooting broken web pages or network errors. Check `summary.counts` for console error logs or HTTP 4xx/5xx failures.
+- **Dynamic SPAs**: Pass `waitUntil: "networkidle2"` for React, Vue, or Next.js sites to ensure JS execution completes.
+- **Interactive Help**: Invoke `screenpool_help` to query parameter schemas and usage examples.
+```
+
 ### Configuration & Environment Variables
 
 Screenpool loads options in order of precedence: **CLI Arguments > Environment Variables > Config File > Default Values**.

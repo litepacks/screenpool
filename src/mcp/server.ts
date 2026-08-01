@@ -4,6 +4,7 @@ import { ScreenPool } from '../ScreenPool.js';
 import { resolveMcpConfig, type ScreenpoolMcpConfig } from './config.js';
 import { McpLogger } from './logger.js';
 import { registerMcpTools } from './tools.js';
+import { VERSION } from '../version.js';
 
 export interface ScreenpoolMcpServerOptions {
   config?: Partial<ScreenpoolMcpConfig>;
@@ -46,7 +47,7 @@ export class ScreenpoolMcpServer {
 
     this.mcpServer = new McpServer({
       name: 'screenpool',
-      version: '0.3.0',
+      version: VERSION,
     });
   }
 
