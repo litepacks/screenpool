@@ -324,7 +324,7 @@ screenpool-mcp
 
 ### AGENTS.md / AI Guidelines Template
 
-To teach AI coding assistants (Antigravity, Claude Code, Cursor, Windsurf, Copilot) how and when to use Screenpool in your project, copy and paste this snippet into your repository's `AGENTS.md` or `CLAUDE.md` file (see full guide in [docs/AGENTS.md](file:///Users/ahmet/projects/screenpool/docs/AGENTS.md)):
+To teach AI coding assistants (Antigravity, Claude Code, Cursor, Windsurf, Copilot) how and when to use Screenpool in your project, copy and paste this snippet into your repository's `AGENTS.md` or `CLAUDE.md` file (see full guide in [docs/AGENTS.md](/docs/AGENTS.md)):
 
 ```markdown
 ## Screenpool Web Rendering & Diagnostics Guidelines
