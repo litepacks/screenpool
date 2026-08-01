@@ -45,7 +45,7 @@ export function registerMcpTools(
       'screenpool_screenshot',
       {
         description:
-          'Capture a screenshot of a web page using the Screenpool browser pool. Supports full-page screenshots, custom viewport settings and configurable page load waiting behavior.',
+          'Capture a screenshot of a web page using the Screenpool browser pool. Supports full-page screenshots, custom viewport settings, configurable page load waiting behavior, and optional diagnostics ("errors" | "standard" | "verbose") for console logs, JS errors, failed network requests, and page state snapshots.',
         inputSchema: ScreenshotInputSchema,
       },
       async (args) => {
@@ -87,7 +87,7 @@ export function registerMcpTools(
       'screenpool_pdf',
       {
         description:
-          'Render a web page as a PDF file using the Screenpool browser pool. Supports page formats (A4, Letter, etc.), margins, landscape mode, and background graphics rendering.',
+          'Render a web page as a PDF file using the Screenpool browser pool. Supports page formats (A4, Letter, etc.), margins, landscape mode, background graphics rendering, and optional diagnostics ("errors" | "standard" | "verbose") for page debugging.',
         inputSchema: PdfInputSchema,
       },
       async (args) => {
@@ -129,7 +129,7 @@ export function registerMcpTools(
       'screenpool_html',
       {
         description:
-          'Fetch fully rendered HTML content of a web page after JavaScript execution. Supports truncation for very large pages.',
+          'Fetch fully rendered HTML content of a web page after JavaScript execution. Supports truncation for very large pages and optional diagnostics ("errors" | "standard" | "verbose") for inspecting page execution issues.',
         inputSchema: HtmlInputSchema,
       },
       async (args) => {
@@ -171,7 +171,7 @@ export function registerMcpTools(
       'screenpool_metadata',
       {
         description:
-          'Extract basic page metadata (title, description meta tag, canonical link, final URL) from a web page using Screenpool.',
+          'Extract basic page metadata (title, description meta tag, canonical link, final URL) from a web page using Screenpool. Supports optional diagnostics ("errors" | "standard" | "verbose").',
         inputSchema: MetadataInputSchema,
       },
       async (args) => {

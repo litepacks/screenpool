@@ -260,12 +260,66 @@ screenpool-mcp
 
 | Tool Name | Description |
 |-----------|-------------|
-| `screenpool_screenshot` | Capture web page screenshot (png, jpeg, webp, fullPage, viewport, selector). |
-| `screenpool_pdf` | Render web page as PDF (A4, Letter, landscape, margins, background). |
-| `screenpool_html` | Extract fully rendered HTML after JavaScript execution (with truncation support). |
-| `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL). |
+| `screenpool_screenshot` | Capture web page screenshot (png, jpeg, webp, fullPage, viewport, selector, diagnostics). |
+| `screenpool_pdf` | Render web page as PDF (A4, Letter, landscape, margins, background, diagnostics). |
+| `screenpool_html` | Extract fully rendered HTML after JavaScript execution (with truncation and diagnostics). |
+| `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL, diagnostics). |
 | `screenpool_health` | View worker pool health status, active jobs, uptime, and queue length. |
-| `screenpool_capabilities` | Inspect supported features, tool list, and available formats. |
+| `screenpool_capabilities` | Inspect supported features, tool list, formats, and diagnostics presets/outputs. |
+
+#### MCP Tool Request with Diagnostics Example
+
+```json
+{
+  "url": "https://example.com",
+  "fullPage": true,
+  "format": "webp",
+  "diagnostics": {
+    "preset": "standard",
+    "output": "summary"
+  }
+}
+```
+
+#### MCP Tool Response with Diagnostics Output Example
+
+```json
+{
+  "success": true,
+  "mimeType": "image/webp",
+  "path": "/path/to/.screenpool/artifacts/screenshot_8f1a.webp",
+  "width": 1280,
+  "height": 720,
+  "size": 45210,
+  "durationMs": 412,
+  "diagnostics": {
+    "id": "run_a1b2c3d4",
+    "preset": "standard",
+    "summary": {
+      "runId": "run_a1b2c3d4",
+      "startedAt": "2026-08-01T10:10:00.000Z",
+      "completedAt": "2026-08-01T10:10:00.412Z",
+      "durationMs": 412,
+      "success": true,
+      "finalUrl": "https://example.com/",
+      "title": "Example Domain",
+      "counts": {
+        "console": 0,
+        "consoleErrors": 0,
+        "pageErrors": 0,
+        "requests": 5,
+        "failedRequests": 0,
+        "responses4xx": 0,
+        "responses5xx": 0,
+        "slowRequests": 0,
+        "issues": 0
+      },
+      "topIssues": [],
+      "slowestRequests": []
+    }
+  }
+}
+```
 
 ### Configuration & Environment Variables
 

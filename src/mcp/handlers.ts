@@ -187,5 +187,20 @@ export async function handleCapabilities(
       screenshot: ['png', 'jpeg', 'webp'],
       pdf: ['A4', 'Letter', 'Legal', 'Tabloid', 'A3', 'A5'],
     },
+    diagnostics: {
+      supported: true,
+      presets: ['errors', 'standard', 'verbose'],
+      outputs: ['summary', 'inline', 'artifacts'],
+      features: [
+        'console',
+        'pageErrors',
+        'network',
+        'pageState',
+        'performance',
+        'timeline',
+        'artifacts',
+        'sanitizer',
+      ],
+    },
   };
 }
