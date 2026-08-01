@@ -28,14 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Chromium
-        run: npx screenpool setup
-
       - name: Run Typecheck
         run: npm run typecheck
 
       - name: Run Build
         run: npm run build
+
+      - name: Setup Chromium
+        run: node dist/cli.js setup
 
       - name: Run Tests
         run: npm test
