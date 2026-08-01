@@ -12,7 +12,7 @@ describe.skipIf(!hasChromium())('remote debugging and custom browser integration
     const externalBrowser = await puppeteer.launch({
       executablePath: chromiumPath,
       headless: true,
-      args: [`--remote-debugging-port=${port}`],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', `--remote-debugging-port=${port}`],
     });
 
     const browserURL = `http://localhost:${port}`;
@@ -44,6 +44,7 @@ describe.skipIf(!hasChromium())('remote debugging and custom browser integration
     const externalBrowser = await puppeteer.launch({
       executablePath: chromiumPath,
       headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const browserWSEndpoint = externalBrowser.wsEndpoint();
@@ -75,6 +76,7 @@ describe.skipIf(!hasChromium())('remote debugging and custom browser integration
     const externalBrowser = await puppeteer.launch({
       executablePath: chromiumPath,
       headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     // 2. Initialize ScreenPool to connect to this browser
