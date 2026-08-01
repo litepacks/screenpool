@@ -8,9 +8,36 @@ import { DEFAULT_OUTPUT_DIR, resolveConfig } from './types.js';
 import { ensureOutputDir, formatToExt, resolveOutputPath } from './utils/resolveOutputPath.js';
 import { isScreenPoolError } from './errors.js';
 
+function buildDiagnosticsFromArgv(argv: any): any {
+  if (
+    !argv.diagnostics &&
+    !argv['diagnostics-dir'] &&
+    !argv['diagnostics-output'] &&
+    !argv['include-console'] &&
+    !argv['include-network'] &&
+    !argv['include-page-errors'] &&
+    !argv['include-performance']
+  ) {
+    return undefined;
+  }
+
+  const preset = typeof argv.diagnostics === 'string' ? argv.diagnostics : 'standard';
+
+  return {
+    preset,
+    artifactsDir: argv['diagnostics-dir'],
+    output: argv['diagnostics-output'],
+    console: argv['include-console'] !== undefined ? argv['include-console'] : undefined,
+    network: argv['include-network'] ? 'all' : undefined,
+    pageErrors: argv['include-page-errors'] !== undefined ? argv['include-page-errors'] : undefined,
+    performance: argv['include-performance'] !== undefined ? argv['include-performance'] : undefined,
+  };
+}
+
 function buildPoolConfig(argv: any): ScreenPoolConfig {
   const browser = argv.browser;
   const outputDir = argv['output-dir'] ?? process.env.SCREENPOOL_OUTPUT_DIR ?? DEFAULT_OUTPUT_DIR;
+  const diagnostics = buildDiagnosticsFromArgv(argv);
 
   const config: ScreenPoolConfig = {
     outputDir,
@@ -27,6 +54,7 @@ function buildPoolConfig(argv: any): ScreenPoolConfig {
       limitMb: argv['memory-limit'],
       v8HeapMb: argv['v8-heap'],
     },
+    diagnostics,
   };
 
   if (browser) {
@@ -97,7 +125,7 @@ async function tryRequestDaemon(
 
 async function writeResult(
   outputDir: string,
-  result: { buffer: Buffer; jobId: string; contentType: string },
+  result: { buffer: Buffer; jobId: string; contentType: string; diagnostics?: any },
   argv: any,
   ext: string,
 ): Promise<void> {
@@ -112,10 +140,15 @@ async function writeResult(
   await ensureOutputDir(outputDir);
   await writeFile(target, result.buffer);
   console.log(target);
+
+  if (result.diagnostics?.summary) {
+    console.error(`[screenpool:diagnostics] Run ${result.diagnostics.id} completed. Summary:`, JSON.stringify(result.diagnostics.summary, null, 2));
+  }
 }
 
 async function runScreenshot(url: string, argv: any): Promise<void> {
   const format = argv.format ?? 'png';
+  const diagnostics = buildDiagnosticsFromArgv(argv);
   const payload = {
     url,
     viewport: {
@@ -125,6 +158,7 @@ async function runScreenshot(url: string, argv: any): Promise<void> {
     format,
     quality: argv.quality,
     fullPage: argv['full-page'],
+    diagnostics,
   };
 
   const outputDir = resolveConfig(buildPoolConfig(argv)).storage.outputDir;
@@ -147,6 +181,7 @@ async function runScreenshot(url: string, argv: any): Promise<void> {
 }
 
 async function runPdf(url: string, argv: any): Promise<void> {
+  const diagnostics = buildDiagnosticsFromArgv(argv);
   const payload = {
     url,
     viewport: {
@@ -154,6 +189,7 @@ async function runPdf(url: string, argv: any): Promise<void> {
       height: argv.height ?? 720,
     },
     pdf: { printBackground: true },
+    diagnostics,
   };
 
   const outputDir = resolveConfig(buildPoolConfig(argv)).storage.outputDir;
@@ -189,6 +225,7 @@ async function runExtract(url: string, argv: any): Promise<void> {
     process.exit(1);
   }
 
+  const diagnostics = buildDiagnosticsFromArgv(argv);
   const payload = {
     url,
     rules,
@@ -196,6 +233,7 @@ async function runExtract(url: string, argv: any): Promise<void> {
       width: argv.width ?? 1280,
       height: argv.height ?? 720,
     },
+    diagnostics,
   };
 
   const outputDir = resolveConfig(buildPoolConfig(argv)).storage.outputDir;

@@ -32,6 +32,8 @@ export interface BrowserInstallConfig {
   cacheDir?: string;
 }
 
+import type { DiagnosticsInput, DiagnosticsOptions, DiagnosticsResult } from './diagnostics/types.js';
+
 /** Memory limits and monitoring configuration. */
 export interface MemoryConfig {
   /** Browser process RSS upper limit in MB. */
@@ -74,6 +76,8 @@ export interface ScreenPoolConfig {
   defaultViewport?: ViewportConfig;
   memory?: MemoryConfig;
   storage?: StorageConfig;
+  /** Global default diagnostics options */
+  diagnostics?: DiagnosticsInput;
   /** Shorthand for storage.outputDir */
   outputDir?: string;
 }
@@ -114,6 +118,7 @@ export interface ScreenshotOptions {
   injectCSS?: string;
   injectJS?: string;
   blockResources?: BlockResourceType[];
+  diagnostics?: DiagnosticsInput;
 }
 
 export interface PdfMarginConfig {
@@ -152,6 +157,7 @@ export interface PdfOptions {
   waitForTimeout?: number;
   injectCSS?: string;
   injectJS?: string;
+  diagnostics?: DiagnosticsInput;
 }
 
 export interface ExtractOptions {
@@ -168,6 +174,7 @@ export interface ExtractOptions {
   injectCSS?: string;
   injectJS?: string;
   blockResources?: BlockResourceType[];
+  diagnostics?: DiagnosticsInput;
 }
 
 export interface ExtractResult extends RenderResult {
@@ -181,6 +188,7 @@ export interface RenderResult {
   durationMs: number;
   jobId: string;
   type: JobType;
+  diagnostics?: DiagnosticsResult;
 }
 
 /** Pool statistics snapshot. */
@@ -229,6 +237,7 @@ export interface ResolvedScreenPoolConfig {
   allowPrivateNetworks: boolean;
   allowFileProtocol: boolean;
   defaultViewport: ViewportConfig;
+  diagnostics?: DiagnosticsOptions;
   memory: Required<Pick<MemoryConfig, 'checkIntervalMs' | 'pressureThreshold' | 'restartOnLimit'>> &
     MemoryConfig;
   storage: Required<Pick<StorageConfig, 'outputDir' | 'tempDir'>>;
@@ -262,6 +271,7 @@ export const DEFAULT_WORKER_RESTART_AFTER_JOBS = 500;
 export const DEFAULT_OUTPUT_DIR = './output';
 
 import os from 'node:os';
+import { resolveDiagnosticsOptions } from './diagnostics/presets.js';
 
 /** Apply defaults to user config. */
 export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfig {
@@ -275,6 +285,34 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     config.storage?.tempDir ??
     process.env.SCREENPOOL_TEMP_DIR ??
     `${os.tmpdir()}/screenpool`;
+
+  const envDiagnosticsInput = process.env.SCREENPOOL_DIAGNOSTICS;
+  let resolvedDiagnosticsInput = config.diagnostics;
+  if (resolvedDiagnosticsInput === undefined && envDiagnosticsInput !== undefined) {
+    if (envDiagnosticsInput === 'true') resolvedDiagnosticsInput = true;
+    else if (envDiagnosticsInput === 'false') resolvedDiagnosticsInput = false;
+    else resolvedDiagnosticsInput = envDiagnosticsInput as any;
+  }
+
+  const envDiagnosticsDir = process.env.SCREENPOOL_DIAGNOSTICS_DIR;
+  const envDiagnosticsOutput = process.env.SCREENPOOL_DIAGNOSTICS_OUTPUT as any;
+  const envDiagnosticsTtl = process.env.SCREENPOOL_DIAGNOSTICS_TTL_MS
+    ? Number.parseInt(process.env.SCREENPOOL_DIAGNOSTICS_TTL_MS, 10)
+    : undefined;
+  const envMaxConsole = process.env.SCREENPOOL_DIAGNOSTICS_MAX_CONSOLE
+    ? Number.parseInt(process.env.SCREENPOOL_DIAGNOSTICS_MAX_CONSOLE, 10)
+    : undefined;
+  const envMaxNetwork = process.env.SCREENPOOL_DIAGNOSTICS_MAX_NETWORK
+    ? Number.parseInt(process.env.SCREENPOOL_DIAGNOSTICS_MAX_NETWORK, 10)
+    : undefined;
+
+  const globalDiagOpts = resolveDiagnosticsOptions(resolvedDiagnosticsInput, {
+    artifactsDir: envDiagnosticsDir,
+    output: envDiagnosticsOutput,
+    artifactTtlMs: envDiagnosticsTtl,
+    maxConsoleEntries: envMaxConsole,
+    maxNetworkEntries: envMaxNetwork,
+  });
 
   return {
     executablePath: config.executablePath,
@@ -297,6 +335,7 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
       height: 720,
       deviceScaleFactor: 1,
     },
+    diagnostics: globalDiagOpts ?? undefined,
     memory: {
       limitMb: config.memory?.limitMb,
       v8HeapMb: config.memory?.v8HeapMb,

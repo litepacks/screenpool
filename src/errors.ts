@@ -124,12 +124,32 @@ export class InvalidOutputPathError extends ScreenPoolError {
   }
 }
 
+export type DiagnosticErrorCode =
+  | 'DIAGNOSTICS_ATTACH_FAILED'
+  | 'DIAGNOSTICS_CAPTURE_FAILED'
+  | 'DIAGNOSTICS_FINALIZE_FAILED'
+  | 'DIAGNOSTICS_ARTIFACT_WRITE_FAILED'
+  | 'DIAGNOSTICS_SERIALIZATION_FAILED'
+  | 'DIAGNOSTICS_INVALID_CONFIG'
+  | 'DIAGNOSTICS_PAGE_CLOSED';
+
+export class DiagnosticsError extends ScreenPoolError {
+  constructor(
+    public readonly code: DiagnosticErrorCode,
+    message: string,
+    cause?: unknown,
+  ) {
+    super(message, cause !== undefined ? { cause } : undefined);
+  }
+}
+
 /** Check whether an error is a ScreenPool typed error. */
 export function isScreenPoolError(error: unknown): error is ScreenPoolError {
   return (
     error instanceof ScreenPoolError ||
     (error instanceof Error &&
       (error.name === 'ScreenPoolError' ||
+        error.name === 'DiagnosticsError' ||
         error.name === 'InvalidRenderInputError' ||
         error.name === 'SecurityBlockedUrlError' ||
         error.name === 'QueueOverflowError' ||

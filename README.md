@@ -82,6 +82,89 @@ screenpool server --port 3000 --pool-size 4 --browser chrome@stable
 screenpool screenshot https://example.com --browser-url http://localhost:9222 --out shot.webp
 ```
 
+```
+
+## Diagnostics and Debugging
+
+Screenpool includes a powerful, lightweight, and zero-overhead diagnostics and debugging subsystem. When enabled, it captures page console logs, uncaught JavaScript errors, failed network requests, HTTP 4xx/5xx responses, slow requests, DOM page state, performance metrics, and unified event timelines.
+
+When disabled (default), diagnostics introduces **zero performance overhead**, registers no page listeners, and creates no disk files.
+
+### Presets
+
+Screenpool offers preset levels for convenient debugging:
+
+* **`errors`**: Captures only critical page errors, console error logs, network failures, HTTP 4xx/5xx status codes, and error state snapshots.
+* **`standard`**: Standard debug mode. Captures warnings, errors, failed network requests, slow requests (> 2000ms), and error HTML/screenshots.
+* **`verbose`**: Detailed tracing. Captures all console levels, all network requests/responses, timeline events, navigation/paint performance metrics, and artifact bundles.
+
+### Usage Examples
+
+#### Quick Preset Usage
+
+```ts
+// Using standard preset shorthand
+const result = await pool.screenshot({
+  url: "https://example.com",
+  diagnostics: "standard"
+});
+
+console.log("Summary:", result.diagnostics?.summary);
+```
+
+#### Custom Options
+
+```ts
+const result = await pool.screenshot({
+  url: "https://example.com",
+  diagnostics: {
+    preset: "verbose",
+    output: "artifacts",
+    includeRequestHeaders: true,
+    slowRequests: { thresholdMs: 1500 },
+    captureOnError: ["screenshot", "html", "page-state", "console", "network", "timeline", "summary"],
+    onEvent(event) {
+      console.log(`[Diagnostic Timeline Event] ${event.type}:`, event.data);
+    }
+  }
+});
+```
+
+### Data Sanitization & Security
+
+Diagnostics automatically redacts sensitive data (`[REDACTED]`) across console entries, network headers, query strings, JSON payloads, and timeline outputs:
+
+* **Sensitive Headers**: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-API-Key`, `X-Auth-Token`, `X-Access-Token`
+* **Sensitive Query Params**: `token`, `access_token`, `refresh_token`, `api_key`, `secret`, `password`, `session`, `code`, `sig`
+* **Sensitive JSON Keys**: `password`, `secret`, `token`, `accessToken`, `apiKey`, `creditCard`, `cvv`
+* **URL Credentials**: Passwords in HTTP URLs (e.g., `https://user:pass@host`)
+
+### CLI Diagnostics Flags
+
+```bash
+screenpool screenshot https://example.com \
+  --diagnostics standard \
+  --diagnostics-dir .screenpool/debug \
+  --diagnostics-output summary
+```
+
+### MCP Diagnostics Integration
+
+Pass `diagnostics` in MCP tool calls:
+
+```json
+{
+  "url": "https://example.com",
+  "fullPage": true,
+  "diagnostics": {
+    "preset": "standard",
+    "output": "summary"
+  }
+}
+```
+
+---
+
 ## Model Context Protocol (MCP) Server
 
 Screenpool provides built-in Model Context Protocol (MCP) server support, allowing AI coding assistants (Claude Code, Cursor, VS Code MCP clients, Antigravity, etc.) to perform web rendering, screenshot capture, PDF generation, HTML extraction, and health checks over standard input/output (stdio).

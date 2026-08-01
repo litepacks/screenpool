@@ -1,6 +1,6 @@
 {
   "name": "screenpool",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Lightweight in-process rendering pool for Node.js — screenshots and PDFs via a fixed Chromium worker pool",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,6 +35,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "benchmark": "tsx scripts/benchmark.ts",
+    "benchmark:diagnostics": "tsx scripts/benchmark-diagnostics.ts",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",

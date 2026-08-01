@@ -21,6 +21,9 @@ import { renderHtmlToPdf } from './renderers/HtmlToPdfRenderer.js';
 import { renderExtract } from './renderers/ExtractRenderer.js';
 import { resetPageState } from './renderers/PageSetup.js';
 
+import { resolveDiagnosticsOptions } from './diagnostics/presets.js';
+import { DiagnosticsCollectorImpl, type DiagnosticsCollector } from './diagnostics/collector.js';
+
 export class ScreenWorker {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
@@ -80,6 +83,15 @@ export class ScreenWorker {
     this.state = 'busy';
     const start = Date.now();
 
+    const jobDiagnosticsInput = (job.options as any)?.diagnostics;
+    const diagOpts = resolveDiagnosticsOptions(jobDiagnosticsInput, this.config.diagnostics);
+
+    let collector: DiagnosticsCollector | undefined;
+    if (diagOpts) {
+      collector = new DiagnosticsCollectorImpl(diagOpts, job.id);
+      collector.attach(this.page);
+    }
+
     try {
       const result = await this.withTimeout(
         job.id,
@@ -88,6 +100,15 @@ export class ScreenWorker {
       );
 
       result.durationMs = Date.now() - start;
+
+      if (collector) {
+        result.diagnostics = await collector.finalize({
+          success: true,
+          buffer: result.buffer,
+          contentType: result.contentType,
+        });
+      }
+
       job.resolve(result);
       this.jobsCompleted++;
 
@@ -101,6 +122,15 @@ export class ScreenWorker {
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
+
+      if (collector) {
+        const diagResult = await collector.finalize({
+          success: false,
+          error: err,
+        });
+        (err as any).diagnostics = diagResult;
+      }
+
       const shouldRecycle =
         this.isCrashError(err) || err instanceof RenderTimeoutError;
 
@@ -121,6 +151,9 @@ export class ScreenWorker {
         }
       }
     } finally {
+      if (collector) {
+        await collector.dispose();
+      }
       if (this.state === 'busy') {
         this.state = 'idle';
       }

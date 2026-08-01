@@ -26,6 +26,7 @@ export async function handleScreenshot(
     omitBackground: input.omitBackground,
     selector: input.selector,
     waitForTimeout: input.delay,
+    diagnostics: input.diagnostics,
   });
 
   const durationMs = Date.now() - start;
@@ -39,6 +40,7 @@ export async function handleScreenshot(
     height: input.viewport?.height || 800,
     size: artifact.size,
     durationMs,
+    diagnostics: res.diagnostics,
   };
 }
 
@@ -60,6 +62,7 @@ export async function handlePdf(
       margin: input.margin,
       scale: input.scale,
     },
+    diagnostics: input.diagnostics,
   });
 
   const durationMs = Date.now() - start;
@@ -71,6 +74,7 @@ export async function handlePdf(
     path: artifact.path,
     size: artifact.size,
     durationMs,
+    diagnostics: res.diagnostics,
   };
 }
 
@@ -87,6 +91,7 @@ export async function handleHtml(
     url: input.url,
     rules,
     waitUntil: input.waitUntil as any,
+    diagnostics: input.diagnostics,
   });
 
   const durationMs = Date.now() - start;
@@ -104,6 +109,7 @@ export async function handleHtml(
     originalLength,
     returnedLength: returnedHtml.length,
     durationMs,
+    diagnostics: res.diagnostics,
   };
 }
 
@@ -125,6 +131,7 @@ export async function handleMetadata(
     url: input.url,
     rules,
     waitUntil: 'domcontentloaded',
+    diagnostics: input.diagnostics,
   });
 
   const durationMs = Date.now() - start;
@@ -138,6 +145,7 @@ export async function handleMetadata(
     canonical: data.canonical || '',
     finalUrl: input.url,
     durationMs,
+    diagnostics: res.diagnostics,
   };
 }
 

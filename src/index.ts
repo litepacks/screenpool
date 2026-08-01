@@ -22,6 +22,7 @@ export type {
 
 export {
   ScreenPoolError,
+  DiagnosticsError,
   ScreenPoolNotStartedError,
   ScreenPoolStoppingError,
   QueueOverflowError,
@@ -48,4 +49,8 @@ export {
 } from './utils/resolveBrowserExecutable.js';
 export type { SetupBrowserOptions, SetupBrowserResult } from './utils/resolveBrowserExecutable.js';
 export { resolveOutputPath, ensureOutputDir, formatToExt } from './utils/resolveOutputPath.js';
+
+export * as diagnostics from './diagnostics/index.js';
+export type * from './diagnostics/types.js';
+
 
