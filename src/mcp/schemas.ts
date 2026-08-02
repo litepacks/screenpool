@@ -145,6 +145,7 @@ export const RunInputSchema = z.object({
       preset: z.enum(['actions', 'debug', 'visual', 'full']).optional(),
       screenshots: z.enum(['off', 'on-error', 'before-action', 'after-action', 'each-action', 'on-observation']).optional(),
       video: z.boolean().optional(),
+      artifactsDir: z.string().optional(),
     })
     .optional(),
 });
@@ -156,6 +157,7 @@ export const RecordStartInputSchema = z.object({
       preset: z.enum(['actions', 'debug', 'visual', 'full']).optional(),
       screenshots: z.enum(['off', 'on-error', 'before-action', 'after-action', 'each-action', 'on-observation']).optional(),
       video: z.boolean().optional(),
+      artifactsDir: z.string().optional(),
     })
     .optional(),
 });

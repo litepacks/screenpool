@@ -79,10 +79,120 @@ screenpool setup --browser chrome@stable --dir ~/.screenpool/browser
 screenpool screenshot https://example.com --out shot.webp --width 1200 --height 630
 screenpool pdf https://example.com --output-dir ./output --out page.pdf
 screenpool server --port 3000 --pool-size 4 --browser chrome@stable
-screenpool screenshot https://example.com --browser-url http://localhost:9222 --out shot.webp
+screenpool run flow.json
 ```
 
+## Browser Action Architecture & Session Management
+
+Screenpool features an observation-based, strict **Browser Action Architecture** and **Record API** designed to execute multi-step interactive flows (popups, OAuth logins, new tabs via `target="_blank"` or `window.open()`, form fills, element resolution, and step verification) safely over isolated browser contexts.
+
+The execution loop follows:
+```text
+Observe → Resolve → Validate → Execute → Stabilize → Verify → Record → Observe
 ```
+
+### Key Features
+- **Isolated Browser Contexts**: Each session runs in an isolated `BrowserContext` (`browser.createBrowserContext()`). Cookies, storage, and sessions never leak across sessions.
+- **Page Registry & Popup Tracking**: Listens to context level target events (`targetcreated`/`targetdestroyed`) to track `target="_blank"`, `window.open()`, and OAuth popups automatically.
+- **Active Page Fallback**: When an active page closes, Screenpool falls back to its opener page (`activate-opener`), main page, or latest open page.
+- **Strict Target Resolution**: Supports `element-id`, `role`, `label`, `text`, `test-id`, `css`, and `point`. Ambiguous targets matching multiple visible elements throw `AMBIGUOUS_TARGET` errors rather than guessing.
+- **Sensitive Data Masking**: Passwords, tokens, cookies, authorization headers, and sensitive form values are automatically redacted as `[REDACTED]`.
+
+### Code Example: Session API
+
+```ts
+import { ScreenPool } from "screenpool";
+
+const pool = new ScreenPool({ poolSize: 2 });
+await pool.start();
+
+// 1. Create an isolated session
+const session = await pool.sessions.create({
+  pages: { maxPages: 5, onPopup: "register", onActivePageClosed: "activate-opener" },
+});
+
+// 2. Start session recording
+const recording = await session.record.start({
+  preset: "debug",
+  screenshots: "each-action",
+});
+
+// 3. Navigate & Observe main page
+await session.goto("https://example.com");
+const obs = await session.observe({ screenshot: true, elements: true });
+
+// 4. Execute action opening a popup window
+const actResult = await session.act({
+  observationId: obs.id,
+  actions: [
+    {
+      type: "click",
+      target: { by: "role", role: "button", name: "Login with GitHub" },
+      expect: {
+        page: {
+          event: "popup",
+          alias: "github-login",
+          activate: true,
+          timeoutMs: 10_000,
+        },
+      },
+    },
+  ],
+});
+
+// 5. Fill credentials on popup page using alias reference
+await session.act({
+  page: { by: "alias", value: "github-login" },
+  actions: [
+    {
+      type: "fill",
+      target: { by: "label", value: "Username" },
+      value: "demo-user",
+      sensitive: true,
+    },
+  ],
+});
+
+// 6. Stop recording & finalize session
+const manifest = await recording.stop();
+console.log("Recording Manifest:", manifest);
+
+await session.close();
+await pool.stop();
+```
+
+### Stateless Run API
+
+For simple one-off e2e action flows, use `pool.run()`:
+
+```ts
+const result = await pool.run({
+  url: "https://news.ycombinator.com",
+  actions: [
+    {
+      type: "click",
+      target: { by: "role", role: "link", name: "new" },
+    },
+    {
+      type: "screenshot",
+      fullPage: true,
+    },
+  ],
+  recording: {
+    preset: "actions",
+    screenshots: "each-action",
+  },
+});
+```
+
+### Record API & Artifacts
+
+Recordings are written to `.screenpool/recordings/rec_<timestamp>_<id>/`:
+- `manifest.json`: Execution metadata, step counts, duration, and artifact paths.
+- `events.jsonl`: Chronological monotonic event stream (`recording.started`, `page.created`, `action.started`, `action.completed`, etc.).
+- `screenshots/`: Pre/post action screenshots (`0001-before-click.png`, `0002-after-click.png`).
+
+---
 
 ## Diagnostics and Debugging
 
@@ -264,6 +374,15 @@ screenpool-mcp
 | `screenpool_pdf` | Render web page as PDF (A4, Letter, landscape, margins, background, diagnostics). |
 | `screenpool_html` | Extract fully rendered HTML after JavaScript execution (with truncation and diagnostics). |
 | `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL, diagnostics). |
+| `screenpool_session_create` | Create an isolated browser session with multi-page lifecycle tracking. |
+| `screenpool_session_pages` | List managed pages in session and active/main page status. |
+| `screenpool_session_close` | Close an active browser session and release its isolated context. |
+| `screenpool_observe` | Capture page observation state including interactive element IDs, viewport, scroll, and compact HTML. |
+| `screenpool_act` | Execute strict, verifiable browser actions (click, fill, press, select, scroll, wait, page actions) on a session. |
+| `screenpool_run` | Stateless browser action run in a temporary session. |
+| `screenpool_record_start` | Start session recording (events jsonl, action step screenshots, and video). |
+| `screenpool_record_stop` | Stop session recording and return recording manifest. |
+| `screenpool_record_get` | Get active session recording status. |
 | `screenpool_health` | View worker pool health status, active jobs, uptime, and queue length. |
 | `screenpool_capabilities` | Inspect supported features, tool list, formats, and diagnostics presets/outputs. |
 | `screenpool_help` | Structured documentation, parameter guides, diagnostics presets, and example payloads. |

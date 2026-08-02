@@ -1,6 +1,6 @@
 import { createWriteStream, type WriteStream } from 'node:fs';
 import { mkdir, writeFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { resolve, join } from 'node:path';
 import type { RecordingArtifact, RecordingManifest, RecordingOptions } from './types.js';
 import type { SessionEvent } from '../sessions/event-bus.js';
 import { createJobId } from '../utils/uuid.js';
@@ -18,7 +18,7 @@ export class RecordingStorage {
   ) {
     const ts = Date.now();
     this.recordingId = `rec_${ts}_${createJobId().slice(0, 6)}`;
-    this.dirPath = join(options.artifactsDir, this.recordingId);
+    this.dirPath = resolve(options.artifactsDir, this.recordingId);
   }
 
   async init(): Promise<void> {

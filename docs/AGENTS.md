@@ -7,9 +7,9 @@ When using Screenpool in project codebases with AI coding assistants (Antigravit
 ## Copy-Paste Snippet for your project's `AGENTS.md`
 
 ```markdown
-## Screenpool Web Rendering & Diagnostics Guidelines
+## Screenpool Web Rendering, Actions & Recording Guidelines
 
-When performing web automation, visual inspection, PDF generation, dynamic HTML extraction, or web debugging, use Screenpool MCP tools (`screenpool_*`).
+When performing web automation, visual inspection, PDF generation, browser action flows, session management, or web debugging, use Screenpool MCP tools (`screenpool_*`).
 
 ### Tool Capabilities & Usage Matrix
 
@@ -19,14 +19,26 @@ When performing web automation, visual inspection, PDF generation, dynamic HTML 
 | `screenpool_pdf` | Convert web page to PDF document | `url`, `format` (`A4` \| `Letter`), `landscape`, `margin`, `diagnostics` |
 | `screenpool_html` | Extract JS-rendered HTML DOM | `url`, `waitUntil` (`networkidle2`), `maxChars`, `diagnostics` |
 | `screenpool_metadata` | Extract page title & meta tags | `url`, `diagnostics` |
-| `screenpool_help` | Discover tool docs & parameter schemas | `topic` (`"all"` \| `"tools"` \| `"diagnostics"`) |
-| `screenpool_health` | View worker pool health & queue stats | N/A |
+| `screenpool_session_create` | Create an isolated browser session | `ttlMs`, `pages` (`maxPages`, `onPopup`, `onActivePageClosed`) |
+| `screenpool_session_pages` | List managed pages in session | `sessionId` |
+| `screenpool_session_close` | Close session and release context | `sessionId` |
+| `screenpool_observe` | Capture page state & element IDs | `sessionId`, `page`, `screenshot`, `html`, `elements` |
+| `screenpool_act` | Execute strict browser actions | `sessionId`, `observationId`, `actions` (`click`, `fill`, `press`, `scroll`, `wait`, `page.*`) |
+| `screenpool_run` | Stateless action flow execution | `url`, `actions`, `recording` (`preset`, `screenshots`) |
+| `screenpool_record_start` | Start event & step recording | `sessionId`, `options` (`preset`, `screenshots`, `video`) |
+| `screenpool_record_stop` | Stop recording & get manifest | `sessionId` |
+| `screenpool_record_get` | Check active recording status | `sessionId` |
+| `screenpool_help` | Discover tool docs & schemas | `topic` (`"all"` \| `"tools"` \| `"diagnostics"`) |
+| `screenpool_health` | View worker pool health & queue | N/A |
 
 ### AI Agent Usage Instructions
 
 1. **Visual Verification**: Use `screenpool_screenshot` to inspect website UI layouts, check responsive viewports, or confirm DOM rendering.
-2. **Web Debugging**: When diagnosing broken web pages, network timeouts, or JS exceptions, pass `diagnostics: "standard"` or `diagnostics: "verbose"`. Check `result.diagnostics.summary.counts` for console errors or HTTP 4xx/5xx responses.
-3. **Dynamic SPA Applications**: For React, Vue, Angular, or Next.js sites, pass `waitUntil: "networkidle2"` to ensure client-side rendering finishes before capturing output.
-4. **Performance & Format**: Prefer `format: "webp"` for low-bandwidth screenshot transmission, or `format: "png"` for exact visual fidelity.
-5. **Interactive Help**: Invoke `screenpool_help` to query parameter schemas and usage examples directly from the server.
+2. **Interactive Browser Flows**: Create a session via `screenpool_session_create`, observe page elements using `screenpool_observe`, and execute action sequences using `screenpool_act`.
+3. **Stateless Action Flows**: For one-off action sequences, invoke `screenpool_run` with an array of actions and optional recording settings.
+4. **Popup & OAuth Handling**: Popups opened via `target="_blank"` or `window.open()` are automatically registered in the session page registry with opener page tracking.
+5. **Session Recording**: Start recording via `screenpool_record_start` to log event streams (`events.jsonl`), step screenshots (`each-action`), and manifest artifacts.
+6. **Web Debugging**: Pass `diagnostics: "standard"` or `diagnostics: "verbose"`. Check `result.diagnostics.summary.counts` for console errors or HTTP 4xx/5xx responses.
+7. **Dynamic SPA Applications**: For React, Vue, Angular, or Next.js sites, pass `waitUntil: "networkidle2"` to ensure client-side rendering finishes before capturing output.
+8. **Interactive Help**: Invoke `screenpool_help` to query parameter schemas and usage examples directly from the server.
 ```

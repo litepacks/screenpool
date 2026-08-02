@@ -40,6 +40,7 @@
         <a href="#quick-start" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Quick start</a>
         <a href="#browser-options" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Browser Options</a>
         <a href="#api-reference" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">API Reference</a>
+        <a href="#browser-actions" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Browser Actions</a>
         <a href="#security" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">Security (SSRF)</a>
         <a href="#http-server" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">HTTP Server</a>
         <a href="#mcp-server" class="text-slate-500 hover:text-cyan-800 dark:text-slate-400 dark:hover:text-cyan-300">MCP Server</a>
@@ -275,6 +276,48 @@ console.log(result.data.stories); // => [{ id: 40912, title: "..." }]</code></pr
       </ul>
     </section>
 
+    <section id="browser-actions" class="doc-section mb-14">
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Browser Action Architecture & Record API</h2>
+      <p class="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
+        Screenpool provides a strict, observation-based browser action engine and session recorder for interactive multi-step flows, popup windows, OAuth logins, and web recording.
+      </p>
+
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Session API Example</h3>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-6"><code class="language-typescript">import { ScreenPool } from 'screenpool';
+
+const pool = new ScreenPool({ poolSize: 2 });
+await pool.start();
+
+// 1. Create an isolated session
+const session = await pool.sessions.create({
+  pages: { maxPages: 5, onPopup: 'register', onActivePageClosed: 'activate-opener' },
+});
+
+// 2. Start recording
+const recording = await session.record.start({ preset: 'debug', screenshots: 'each-action' });
+
+// 3. Navigate and Observe
+await session.goto('https://example.com');
+const obs = await session.observe({ screenshot: true, elements: true });
+
+// 4. Execute Action Sequence
+const actResult = await session.act({
+  observationId: obs.id,
+  actions: [
+    {
+      type: 'click',
+      target: { by: 'role', role: 'button', name: 'Open Auth' },
+      expect: { page: { event: 'popup', alias: 'oauth-login', activate: true } }
+    }
+  ]
+});
+
+// 5. Stop Recording & Close
+const manifest = await recording.stop();
+await session.close();
+await pool.stop();</code></pre>
+    </section>
+
     <section id="security" class="doc-section mb-14">
       <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Security (SSRF Protection)</h2>
       <p class="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
@@ -346,8 +389,18 @@ screenpool-mcp</code></pre>
             <tr><td><code>screenpool_pdf</code></td><td>Render web page as PDF (A4, Letter, landscape, margins).</td></tr>
             <tr><td><code>screenpool_html</code></td><td>Extract client-side rendered HTML after JS execution (with truncation support).</td></tr>
             <tr><td><code>screenpool_metadata</code></td><td>Extract page title, meta description, and canonical URL.</td></tr>
+            <tr><td><code>screenpool_session_create</code></td><td>Create an isolated browser session with multi-page tracking.</td></tr>
+            <tr><td><code>screenpool_session_pages</code></td><td>List managed pages in session and active/main status.</td></tr>
+            <tr><td><code>screenpool_session_close</code></td><td>Close active browser session and release isolated context.</td></tr>
+            <tr><td><code>screenpool_observe</code></td><td>Capture page observation state including interactive element IDs and compact DOM.</td></tr>
+            <tr><td><code>screenpool_act</code></td><td>Execute strict, verifiable browser actions (click, fill, press, select, scroll, wait, page actions).</td></tr>
+            <tr><td><code>screenpool_run</code></td><td>Stateless browser action run in a temporary session.</td></tr>
+            <tr><td><code>screenpool_record_start</code></td><td>Start session recording (events jsonl, action screenshots, and video).</td></tr>
+            <tr><td><code>screenpool_record_stop</code></td><td>Stop session recording and return recording manifest.</td></tr>
+            <tr><td><code>screenpool_record_get</code></td><td>Get active session recording status.</td></tr>
             <tr><td><code>screenpool_health</code></td><td>View worker pool health status, active jobs, uptime, and queue length.</td></tr>
             <tr><td><code>screenpool_capabilities</code></td><td>Inspect supported formats, tool list, and version information.</td></tr>
+            <tr><td><code>screenpool_help</code></td><td>Structured documentation, parameter guides, diagnostics presets, and examples.</td></tr>
           </tbody>
         </table>
       </div>
