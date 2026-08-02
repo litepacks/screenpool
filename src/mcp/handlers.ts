@@ -283,6 +283,12 @@ export async function handleHelp(input: HelpInput) {
     sanitization: 'Redacts sensitive headers (Authorization, Cookie, X-API-Key), query parameters (token, secret, apiKey), JSON payload keys, and URL credentials automatically with [REDACTED].',
   };
 
+  const formatsDoc = {
+    screenshot: ['png', 'jpeg', 'webp'],
+    pdf: ['A4', 'Letter', 'Legal', 'Tabloid', 'A3', 'A5'],
+    viewports: { default: '1280x720', max: '7680x4320' },
+  };
+
   const examplesDoc = {
     screenshotWithDiagnostics: {
       url: 'https://example.com',
@@ -318,19 +324,78 @@ export async function handleHelp(input: HelpInput) {
   if (topic === 'formats') {
     return {
       topic,
-      formats: {
-        screenshot: ['png', 'jpeg', 'webp'],
-        pdf: ['A4', 'Letter', 'Legal', 'Tabloid', 'A3', 'A5'],
-        viewports: { default: '1280x720', max: '7680x4320' },
-      },
+      formats: formatsDoc,
     };
   }
 
   return {
-    topic: 'all',
-    overview: 'Screenpool is a lightweight in-process browser pool for Node.js providing screenshot, PDF, HTML extraction, metadata, health monitoring, and advanced diagnostics.',
+    doc: 'Screenpool MCP Documentation',
+    topic,
     tools: toolsDoc,
     diagnostics: diagnosticsDoc,
+    formats: formatsDoc,
     examples: examplesDoc,
+  };
+}
+
+export async function handleSessionCreate(pool: ScreenPool, input: any) {
+  const session = await pool.sessions.create(input);
+  return session.getInfo();
+}
+
+export async function handleSessionPages(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const pagesList = await session.pages.list();
+  return {
+    mainPageId: session.mainPageId,
+    activePageId: session.activePageId,
+    pages: pagesList,
+  };
+}
+
+export async function handleSessionClose(pool: ScreenPool, input: any) {
+  await pool.sessions.close(input.sessionId);
+  return { success: true, sessionId: input.sessionId };
+}
+
+export async function handleObserve(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const obs = await session.observe(input);
+  return obs;
+}
+
+export async function handleAct(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const result = await session.act(input);
+  return result;
+}
+
+export async function handleRun(pool: ScreenPool, input: any) {
+  const result = await pool.run(input);
+  return result;
+}
+
+export async function handleRecordStart(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const rec = await session.record.start(input.options);
+  return {
+    recordingId: rec.id,
+    sessionId: rec.sessionId,
+    startedAt: rec.startedAt,
+    options: rec.options,
+  };
+}
+
+export async function handleRecordStop(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const manifest = await session.record.stop();
+  return manifest;
+}
+
+export async function handleRecordGet(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const active = session.record.get();
+  return {
+    active: active ? { id: active.id, startedAt: active.startedAt } : null,
   };
 }

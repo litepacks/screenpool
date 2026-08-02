@@ -515,6 +515,31 @@ async function main(): Promise<void> {
       }
     )
     .command(
+      'run <flowFile>',
+      'Run a browser action flow defined in a JSON file',
+      (y) => y.positional('flowFile', { type: 'string', demandOption: true, describe: 'JSON file containing flow configuration' }),
+      async (argv) => {
+        try {
+          const { readFile } = await import('node:fs/promises');
+          const flowContent = await readFile(argv.flowFile as string, 'utf8');
+          const flow = JSON.parse(flowContent);
+
+          const config = buildPoolConfig(argv);
+          const pool = new ScreenPool(config);
+          await pool.start();
+
+          try {
+            const result = await pool.run(flow);
+            console.log(JSON.stringify(result, null, 2));
+          } finally {
+            await pool.stop();
+          }
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .command(
       'daemon <subcommand>',
       'Manage background server service via unitup (systemd)',
       (y) => y

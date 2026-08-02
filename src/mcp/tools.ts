@@ -11,6 +11,15 @@ import {
   HealthInputSchema,
   CapabilitiesInputSchema,
   HelpInputSchema,
+  SessionCreateInputSchema,
+  SessionPagesInputSchema,
+  SessionCloseInputSchema,
+  ObserveInputSchema,
+  ActInputSchema,
+  RunInputSchema,
+  RecordStartInputSchema,
+  RecordStopInputSchema,
+  RecordGetInputSchema,
 } from './schemas.js';
 import {
   handleScreenshot,
@@ -20,6 +29,15 @@ import {
   handleHealth,
   handleCapabilities,
   handleHelp,
+  handleSessionCreate,
+  handleSessionPages,
+  handleSessionClose,
+  handleObserve,
+  handleAct,
+  handleRun,
+  handleRecordStart,
+  handleRecordStop,
+  handleRecordGet,
 } from './handlers.js';
 import { randomBytes } from 'node:crypto';
 
@@ -329,4 +347,67 @@ export function registerMcpTools(
       },
     );
   }
+
+  // 8. screenpool_session_create
+  server.registerTool('screenpool_session_create', { description: 'Create an isolated browser session with multi-page lifecycle tracking.', inputSchema: SessionCreateInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleSessionCreate(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 9. screenpool_session_pages
+  server.registerTool('screenpool_session_pages', { description: 'List managed pages and active/main page state in a session.', inputSchema: SessionPagesInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleSessionPages(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 10. screenpool_session_close
+  server.registerTool('screenpool_session_close', { description: 'Close an active browser session and release its isolated context.', inputSchema: SessionCloseInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleSessionClose(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 11. screenpool_observe
+  server.registerTool('screenpool_observe', { description: 'Capture page observation state including interactive element IDs, viewport, scroll, and compact HTML.', inputSchema: ObserveInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleObserve(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 12. screenpool_act
+  server.registerTool('screenpool_act', { description: 'Execute strict, verifiable browser actions (click, fill, press, select, scroll, wait, page actions) on a session.', inputSchema: ActInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleAct(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 13. screenpool_run
+  server.registerTool('screenpool_run', { description: 'Stateless browser action run in a temporary session.', inputSchema: RunInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleRun(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 14. screenpool_record_start
+  server.registerTool('screenpool_record_start', { description: 'Start session recording (events jsonl, action step screenshots, and video).', inputSchema: RecordStartInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleRecordStart(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 15. screenpool_record_stop
+  server.registerTool('screenpool_record_stop', { description: 'Stop session recording and return recording manifest.', inputSchema: RecordStopInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleRecordStop(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
+
+  // 16. screenpool_record_get
+  server.registerTool('screenpool_record_get', { description: 'Get active session recording status.', inputSchema: RecordGetInputSchema }, async (args) => {
+    if (ensureStarted) await ensureStarted();
+    const res = await handleRecordGet(pool, args);
+    return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+  });
 }

@@ -29,6 +29,16 @@ import {
 } from './security/SecurityGuard.js';
 import { createJobId } from './utils/uuid.js';
 import { countBrowserPages, type BrowserPageStats } from './utils/browserPages.js';
+import { SessionManager } from './sessions/manager.js';
+import type { Action, ActionRunResult } from './actions/types.js';
+import type { RecordingOptions } from './recording/types.js';
+
+export interface StatelessRunOptions {
+  url?: string;
+  actions: Action[];
+  recording?: RecordingOptions;
+  sessionOptions?: Parameters<SessionManager['create']>[0];
+}
 
 /**
  * In-process Chromium rendering pool with queued jobs and fixed concurrency.
@@ -39,6 +49,7 @@ export class ScreenPool extends EventEmitter {
   private workerPool: WorkerPool | null = null;
   private jobQueue: JobQueue;
   private healthMonitor: HealthMonitor | null = null;
+  private sessionManagerInternal: SessionManager;
 
   private started = false;
   private stopping = false;
@@ -51,6 +62,12 @@ export class ScreenPool extends EventEmitter {
     this.config = resolveConfig(config);
     this.browserManager = new BrowserManager(this.config);
     this.jobQueue = new JobQueue(this.config.maxQueueSize);
+    this.sessionManagerInternal = new SessionManager(() => this.browserManager.getBrowser());
+  }
+
+  /** Access Session Manager for session-based browser actions. */
+  get sessions(): SessionManager {
+    return this.sessionManagerInternal;
   }
 
   /** Start the pool — launch browser and workers. */
@@ -163,6 +180,37 @@ export class ScreenPool extends EventEmitter {
       ...result,
       data: JSON.parse(result.buffer.toString('utf8')),
     };
+  }
+
+  /** Run a sequence of browser actions in a temporary isolated session. */
+  async run(options: StatelessRunOptions): Promise<ActionRunResult> {
+    if (!this.started) {
+      await this.start();
+    }
+
+    const session = await this.sessions.create(options.sessionOptions);
+    try {
+      if (options.url) {
+        await session.goto(options.url);
+      }
+
+      let recordingId: string | undefined;
+      if (options.recording) {
+        const rec = await session.record.start(options.recording);
+        recordingId = rec.id;
+      }
+
+      const result = await session.act(options.actions);
+
+      if (options.recording) {
+        const manifest = await session.record.stop();
+        result.recordingId = manifest.id;
+      }
+
+      return result;
+    } finally {
+      await session.close().catch(() => undefined);
+    }
   }
 
   /** Pool statistics snapshot. */

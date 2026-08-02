@@ -102,8 +102,76 @@ export const HelpInputSchema = z.object({
     .describe('Topic for documentation: "all", "tools", "diagnostics", "formats", or "examples"'),
 });
 
+export const SessionCreateInputSchema = z.object({
+  ttlMs: z.number().optional(),
+  pages: z
+    .object({
+      maxPages: z.number().optional(),
+      onPopup: z.enum(['register', 'register-and-activate', 'close', 'reject']).optional(),
+      onActivePageClosed: z.enum(['activate-opener', 'activate-main', 'activate-latest', 'none']).optional(),
+      allowCrossOrigin: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+export const SessionPagesInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+});
+
+export const SessionCloseInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+});
+
+export const ObserveInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+  page: z.any().optional(),
+  screenshot: z.boolean().optional(),
+  html: z.enum(['off', 'compact', 'full']).optional(),
+  elements: z.boolean().optional(),
+});
+
+export const ActInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+  observationId: z.string().optional(),
+  defaultPage: z.any().optional(),
+  actions: z.array(z.any()),
+});
+
+export const RunInputSchema = z.object({
+  url: z.string().optional(),
+  actions: z.array(z.any()),
+  recording: z
+    .object({
+      preset: z.enum(['actions', 'debug', 'visual', 'full']).optional(),
+      screenshots: z.enum(['off', 'on-error', 'before-action', 'after-action', 'each-action', 'on-observation']).optional(),
+      video: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+export const RecordStartInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+  options: z
+    .object({
+      preset: z.enum(['actions', 'debug', 'visual', 'full']).optional(),
+      screenshots: z.enum(['off', 'on-error', 'before-action', 'after-action', 'each-action', 'on-observation']).optional(),
+      video: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+export const RecordStopInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+  recordingId: z.string().optional(),
+});
+
+export const RecordGetInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required'),
+});
+
 export type ScreenshotInput = z.infer<typeof ScreenshotInputSchema>;
 export type PdfInput = z.infer<typeof PdfInputSchema>;
 export type HtmlInput = z.infer<typeof HtmlInputSchema>;
 export type MetadataInput = z.infer<typeof MetadataInputSchema>;
 export type HelpInput = z.infer<typeof HelpInputSchema>;
+

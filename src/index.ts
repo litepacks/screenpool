@@ -1,4 +1,16 @@
 export { ScreenPool } from './ScreenPool.js';
+export type { StatelessRunOptions } from './ScreenPool.js';
+
+export { SessionManager } from './sessions/manager.js';
+export { BrowserSessionImpl } from './sessions/session.js';
+export { ActionError } from './actions/errors.js';
+export type { ActionErrorCode } from './actions/errors.js';
+
+export type * from './actions/types.js';
+export type * from './sessions/types.js';
+export type * from './pages/types.js';
+export type * from './observations/types.js';
+export type * from './recording/types.js';
 
 export type {
   ScreenPoolConfig,
@@ -52,5 +64,6 @@ export { resolveOutputPath, ensureOutputDir, formatToExt } from './utils/resolve
 
 export * as diagnostics from './diagnostics/index.js';
 export type * from './diagnostics/types.js';
+
 
 
