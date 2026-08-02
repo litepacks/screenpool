@@ -4,7 +4,24 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getChromiumPath, hasChromium } from './helpers/chromium.js';
 import { ScreenPool } from '../src/ScreenPool.js';
 import { ScreenpoolMcpServer } from '../src/mcp/server.js';
-import { handleScreenshot, handlePdf, handleHtml, handleMetadata, handleHealth, handleCapabilities, handleHelp } from '../src/mcp/handlers.js';
+import {
+  handleScreenshot,
+  handlePdf,
+  handleHtml,
+  handleMetadata,
+  handleHealth,
+  handleCapabilities,
+  handleHelp,
+  handleSessionCreate,
+  handleSessionPages,
+  handleSessionClose,
+  handleObserve,
+  handleAct,
+  handleRun,
+  handleRecordStart,
+  handleRecordStop,
+  handleRecordGet,
+} from '../src/mcp/handlers.js';
 import { validateTargetUrl } from '../src/mcp/security.js';
 
 const chromiumPath = getChromiumPath();
@@ -207,5 +224,82 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     const helpTools = await handleHelp({ topic: 'tools' });
     expect(helpTools.topic).toBe('tools');
     expect(helpTools.tools.screenpool_pdf).toBeDefined();
+  });
+
+  it('manages sessions, observe, act, and record via MCP handlers', async () => {
+    const config = mcpServer.currentConfig;
+
+    // 1. Create Session
+    const sessionRes = await handleSessionCreate(pool, {}, config);
+    expect(sessionRes.id).toBeDefined();
+    const sessionId = sessionRes.id;
+
+    // 2. List Pages
+    const pagesRes = await handleSessionPages(pool, { sessionId }, config);
+    expect(pagesRes.pages.length).toBeGreaterThan(0);
+
+    // Navigate main page
+    const session = pool.sessions.get(sessionId)!;
+    await session.goto(`${baseUrl}/test-page`);
+
+    // 3. Start Recording
+    const recStartRes = await handleRecordStart(pool, { sessionId, options: { preset: 'debug' } }, config);
+    expect(recStartRes.recordingId).toBeDefined();
+
+    // Check Record Status
+    const recGetRes = await handleRecordGet(pool, { sessionId }, config);
+    expect(recGetRes.active?.id).toBeDefined();
+
+    // 4. Observe Page
+    const obsRes = await handleObserve(pool, { sessionId, screenshot: false, html: 'compact' }, config);
+    expect(obsRes.id).toBeDefined();
+
+    // 5. Execute Act
+    const actRes = await handleAct(
+      pool,
+      {
+        sessionId,
+        observationId: obsRes.id,
+        actions: [
+          {
+            type: 'wait',
+            durationMs: 100,
+          },
+        ],
+      },
+      config,
+    );
+    expect(actRes.success).toBe(true);
+
+    // 6. Stop Recording
+    const recStopRes = await handleRecordStop(pool, { sessionId }, config);
+    expect(recStopRes.id).toBeDefined();
+
+    // 7. Close Session
+    const closeRes = await handleSessionClose(pool, { sessionId }, config);
+    expect(closeRes.success).toBe(true);
+  });
+
+  it('executes stateless browser action run via MCP handleRun handler', async () => {
+    const config = mcpServer.currentConfig;
+    const runRes = await handleRun(
+      pool,
+      {
+        url: `${baseUrl}/test-page`,
+        actions: [
+          {
+            type: 'wait',
+            durationMs: 100,
+          },
+        ],
+        recording: {
+          preset: 'actions',
+        },
+      },
+      config,
+    );
+
+    expect(runRes.success).toBe(true);
+    expect(runRes.recordingId).toBeDefined();
   });
 });
