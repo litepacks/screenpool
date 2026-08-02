@@ -96,4 +96,24 @@ describe('Actions & Recording Unit Tests', () => {
     expect(err.retryable).toBe(false);
     expect(err.details?.matchCount).toBe(3);
   });
+
+  test('RecordingStorage does not pre-create empty subdirectories on init', async () => {
+    const { RecordingStorage } = await import('../../src/recording/storage.js');
+    const { existsSync } = await import('node:fs');
+    const { rm } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+
+    const storage = new RecordingStorage('session_test', resolveRecordingOptions({ preset: 'actions' }));
+    await storage.init();
+
+    expect(existsSync(storage.dirPath)).toBe(true);
+    expect(existsSync(join(storage.dirPath, 'screenshots'))).toBe(false);
+    expect(existsSync(join(storage.dirPath, 'html'))).toBe(false);
+    expect(existsSync(join(storage.dirPath, 'videos'))).toBe(false);
+
+    await storage.close();
+    try {
+      await rm(storage.dirPath, { recursive: true, force: true });
+    } catch {}
+  });
 });

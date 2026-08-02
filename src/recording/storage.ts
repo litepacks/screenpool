@@ -23,11 +23,6 @@ export class RecordingStorage {
 
   async init(): Promise<void> {
     await mkdir(this.dirPath, { recursive: true });
-    await mkdir(join(this.dirPath, 'screenshots'), { recursive: true });
-    await mkdir(join(this.dirPath, 'html'), { recursive: true });
-    await mkdir(join(this.dirPath, 'videos'), { recursive: true });
-    await mkdir(join(this.dirPath, 'observations'), { recursive: true });
-
     const eventsPath = join(this.dirPath, 'events.jsonl');
     this.eventsStream = createWriteStream(eventsPath, { flags: 'a', encoding: 'utf8' });
   }
@@ -45,12 +40,9 @@ export class RecordingStorage {
     label: string;
     buffer: Buffer;
   }): Promise<RecordingArtifact> {
-    const pageDir = join(this.dirPath, 'screenshots', params.pageId);
-    await mkdir(pageDir, { recursive: true });
-
     const seq = String(this.artifacts.filter((a) => a.type === 'screenshot').length + 1).padStart(4, '0');
-    const fileName = `${seq}-${params.label}.png`;
-    const fullPath = join(pageDir, fileName);
+    const fileName = `${seq}-${params.pageId}-${params.label}.png`;
+    const fullPath = join(this.dirPath, fileName);
 
     await writeFile(fullPath, params.buffer);
     const fileStat = await stat(fullPath).catch(() => ({ size: params.buffer.length }));
@@ -76,12 +68,9 @@ export class RecordingStorage {
     label: string;
     content: string;
   }): Promise<RecordingArtifact> {
-    const pageDir = join(this.dirPath, 'html', params.pageId);
-    await mkdir(pageDir, { recursive: true });
-
     const seq = String(this.artifacts.filter((a) => a.type === 'html').length + 1).padStart(4, '0');
-    const fileName = `${seq}-${params.label}.html`;
-    const fullPath = join(pageDir, fileName);
+    const fileName = `${seq}-${params.pageId}-${params.label}.html`;
+    const fullPath = join(this.dirPath, fileName);
 
     await writeFile(fullPath, params.content, 'utf8');
     const fileStat = await stat(fullPath).catch(() => ({ size: Buffer.byteLength(params.content) }));
