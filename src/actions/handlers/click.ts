@@ -18,24 +18,40 @@ export async function handleClick(params: {
   const pagesBefore = new Set(registry.list().map((p) => p.id));
   const expectedPopup = action.expect?.page;
 
-  if (target?.point) {
-    await page.rawPage.mouse.click(target.point.x, target.point.y, {
-      button: action.button ?? 'left',
-      clickCount: action.count ?? 1,
-    });
-  } else if (target?.elementHandle) {
-    if (action.count === 2) {
-      await target.elementHandle.click({
+  try {
+    if (target?.point) {
+      await page.rawPage.mouse.click(target.point.x, target.point.y, {
         button: action.button ?? 'left',
-        clickCount: 2,
+        clickCount: action.count ?? 1,
       });
+    } else if (target?.elementHandle) {
+      if (action.count === 2) {
+        await target.elementHandle.click({
+          button: action.button ?? 'left',
+          clickCount: 2,
+        });
+      } else {
+        await target.elementHandle.click({
+          button: action.button ?? 'left',
+        });
+      }
     } else {
-      await target.elementHandle.click({
-        button: action.button ?? 'left',
+      throw new ActionError('INVALID_ACTION', 'Click action requires a valid target.');
+    }
+  } catch (err: any) {
+    if (err instanceof ActionError) throw err;
+    if (
+      err?.message?.includes('Execution context was destroyed') ||
+      err?.message?.includes('navigating') ||
+      err?.message?.includes('Target closed')
+    ) {
+      // Navigation occurred during click, wait for new page context to stabilize
+      await page.rawPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5_000 }).catch(() => undefined);
+    } else {
+      throw new ActionError('INVALID_ACTION', err?.message || 'Click action failed.', {
+        cause: err,
       });
     }
-  } else {
-    throw new ActionError('INVALID_ACTION', 'Click action requires a valid target.');
   }
 
   // Handle expected popup / newly opened pages

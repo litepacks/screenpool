@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createServer, type Server } from 'node:http';
+import { existsSync } from 'node:fs';
 import { ScreenPool } from '../../src/ScreenPool.js';
 
 describe('Browser Actions & Recording Integration Tests', () => {
@@ -222,5 +223,39 @@ describe('Browser Actions & Recording Integration Tests', () => {
 
     expect(runResult.success).toBe(true);
     expect(runResult.recordingId).toBeDefined();
+  });
+
+  test('Visual video recording produces interactive HTML5 video presentation player artifact', async () => {
+    const session = await pool.sessions.create({ pages: { maxPages: 2 } });
+    const recording = await session.record.start({ preset: 'visual', video: true });
+    await session.goto(`${serverUrl}/main`);
+    await session.act({
+      actions: [{ type: 'wait', durationMs: 150 }],
+    });
+    const manifest = await recording.stop();
+    expect(manifest.artifacts.some((a) => a.type === 'video')).toBe(true);
+    const videoArt = manifest.artifacts.find((a) => a.type === 'video')!;
+    expect(videoArt.mimeType).toBe('text/html');
+    expect(existsSync(videoArt.path)).toBe(true);
+    await session.close();
+  });
+
+  test('Consecutive link clicks with navigation stabilize context automatically without throwing context destroyed error', async () => {
+    const session = await pool.sessions.create({ pages: { maxPages: 2 } });
+    await session.goto(`${serverUrl}/main`);
+    const actResult = await session.act({
+      actions: [
+        {
+          type: 'click',
+          target: { by: 'text', value: 'Target Blank Link' },
+        },
+        {
+          type: 'wait',
+          durationMs: 100,
+        },
+      ],
+    });
+    expect(actResult.success).toBe(true);
+    await session.close();
   });
 });

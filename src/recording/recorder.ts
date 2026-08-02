@@ -8,9 +8,12 @@ import { buildRecordingManifest } from './manifest.js';
 import { ActionError } from '../actions/errors.js';
 import { toPageSummary } from '../pages/types.js';
 
+import { PuppeteerVisualRecorder } from './visual-recorder.js';
+
 export class SessionRecorder {
   private activeRecording: ActiveRecording | null = null;
   private storage: RecordingStorage | null = null;
+  private visualRecorder = new PuppeteerVisualRecorder();
   private cleanupBus?: Cleanup;
   private options?: Required<RecordingOptions>;
 
@@ -45,6 +48,13 @@ export class SessionRecorder {
     const storage = new RecordingStorage(this.sessionId, resolved);
     await storage.init();
     this.storage = storage;
+
+    // Attach visual recorder if video option is enabled
+    if (resolved.video) {
+      for (const page of this.registry.list()) {
+        void this.visualRecorder.attach(page, storage);
+      }
+    }
 
     const startedAt = new Date().toISOString();
 
@@ -82,6 +92,10 @@ export class SessionRecorder {
     const rec = this.activeRecording!;
     const completedAt = new Date().toISOString();
     const durationMs = new Date(completedAt).getTime() - new Date(rec.startedAt).getTime();
+
+    if (this.options.video) {
+      await this.visualRecorder.stopAll(this.storage);
+    }
 
     this.eventBus.emit('recording.stopped', {
       data: { recordingId: rec.id, durationMs },
@@ -124,6 +138,9 @@ export class SessionRecorder {
       this.actionCount++;
     } else if (event.type === 'observation.created') {
       this.observationCount++;
+    } else if (event.type === 'page.created' && event.pageId && this.options?.video) {
+      const page = this.registry.get(event.pageId);
+      if (page) void this.visualRecorder.attach(page, this.storage);
     }
 
     // Sanitize event data before writing

@@ -90,6 +90,35 @@ export class RecordingStorage {
     return artifact;
   }
 
+  async saveVideo(params: {
+    pageId: string;
+    buffer: Buffer;
+    mimeType?: string;
+    ext?: string;
+  }): Promise<RecordingArtifact> {
+    const ext = params.ext || (params.mimeType === 'text/html' ? 'html' : 'webm');
+    const mimeType = params.mimeType || (ext === 'html' ? 'text/html' : 'video/webm');
+    const seq = String(this.artifacts.filter((a) => a.type === 'video').length + 1).padStart(4, '0');
+    const fileName = `${seq}-${params.pageId}-recording.${ext}`;
+    const fullPath = join(this.dirPath, fileName);
+
+    await writeFile(fullPath, params.buffer);
+    const fileStat = await stat(fullPath).catch(() => ({ size: params.buffer.length }));
+
+    const artifact: RecordingArtifact = {
+      id: `art_${createJobId()}`,
+      type: 'video',
+      pageId: params.pageId,
+      path: fullPath,
+      mimeType,
+      sizeBytes: fileStat.size,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.artifacts.push(artifact);
+    return artifact;
+  }
+
   async saveManifest(manifest: RecordingManifest): Promise<string> {
     const manifestPath = join(this.dirPath, 'manifest.json');
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');

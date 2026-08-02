@@ -165,7 +165,16 @@ export class ActionOrchestrator {
         }
       }
 
-      // 5. Target Resolution
+      // 5. Page Context Stabilization (if previous step triggered navigation)
+      try {
+        await page.rawPage.evaluate(() => true).catch(async () => {
+          await page.rawPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5_000 }).catch(() => undefined);
+        });
+      } catch {
+        // ignore
+      }
+
+      // 6. Target Resolution
       let resolvedTarget;
       if ('target' in action && action.target) {
         resolvedTarget = await resolveTarget(
