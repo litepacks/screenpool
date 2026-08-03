@@ -273,14 +273,63 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
 
     // 6. Stop Recording
     const recStopRes = await handleRecordStop(pool, { sessionId }, config);
-    expect(recStopRes.id).toBeDefined();
+    expect(recStopRes.success).toBe(true);
+    expect(recStopRes.manifest.id).toBeDefined();
 
     // 7. Close Session
     const closeRes = await handleSessionClose(pool, { sessionId }, config);
     expect(closeRes.success).toBe(true);
   });
 
-  it('executes stateless browser action run via MCP handleRun handler', async () => {
+  it('starts recording with auto-created session and stops with single-command auto-close', async () => {
+    const config = mcpServer.currentConfig;
+
+    // 1. Single-command start recording without pre-existing sessionId
+    const recStartRes = await handleRecordStart(
+      pool,
+      {
+        url: `${baseUrl}/test-page`,
+        options: { preset: 'debug', screenshots: 'each-action' },
+      },
+      config,
+    );
+
+    expect(recStartRes.success).toBe(true);
+    expect(recStartRes.recordingId).toBeDefined();
+    expect(recStartRes.sessionId).toBeDefined();
+    expect(recStartRes.autoCreatedSession).toBe(true);
+
+    const sessionId = recStartRes.sessionId;
+
+    // Verify record get works without passing sessionId
+    const getRes = await handleRecordGet(pool, {}, config);
+    expect(getRes.success).toBe(true);
+    expect(getRes.sessionId).toBe(sessionId);
+    expect(getRes.active?.id).toBe(recStartRes.recordingId);
+
+    // Perform an action on auto-created session
+    await handleAct(
+      pool,
+      {
+        sessionId,
+        actions: [{ type: 'wait', durationMs: 100 }],
+      },
+      config,
+    );
+
+    // 2. Single-command stop recording without sessionId, with closeSession: true
+    const recStopRes = await handleRecordStop(pool, { closeSession: true }, config);
+    expect(recStopRes.success).toBe(true);
+    expect(recStopRes.sessionId).toBe(sessionId);
+    expect(recStopRes.manifest).toBeDefined();
+    expect(recStopRes.artifacts.length).toBeGreaterThan(0);
+
+    // Verify session was closed
+    const sessionCheck = pool.sessions.get(sessionId);
+    expect(sessionCheck).toBeUndefined();
+  });
+
+  it('executes stateless browser action run returning complete recording manifest', async () => {
     const config = mcpServer.currentConfig;
     const runRes = await handleRun(
       pool,
@@ -301,5 +350,8 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
 
     expect(runRes.success).toBe(true);
     expect(runRes.recordingId).toBeDefined();
+    expect(runRes.recording).toBeDefined();
+    expect(runRes.recording?.id).toBe(runRes.recordingId);
+    expect(runRes.recording?.artifacts).toBeDefined();
   });
 });

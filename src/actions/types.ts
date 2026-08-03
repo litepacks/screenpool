@@ -3,6 +3,7 @@ import type { Target, ClickTarget, EditableTarget, FocusableTarget } from './tar
 import type { VerificationCondition, VerificationResult } from './verification/types.js';
 import type { ActionErrorCode } from './errors.js';
 import type { Observation } from '../observations/types.js';
+import type { RecordingManifest } from '../recording/types.js';
 
 export type WaitStrategy = 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2' | number;
 
@@ -173,6 +174,7 @@ export interface ActionStepResult {
   };
 }
 
+
 export interface ActionRunResult {
   id: string;
   sessionId: string;
@@ -185,6 +187,7 @@ export interface ActionRunResult {
   steps: ActionStepResult[];
   observation?: Observation;
   recordingId?: string;
+  recording?: RecordingManifest;
   diagnostics?: {
     id: string;
     artifacts?: unknown[];

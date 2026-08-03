@@ -393,28 +393,28 @@ export function registerMcpTools(
   });
 
   // 13. screenpool_run
-  server.registerTool('screenpool_run', { description: 'Stateless browser action run in a temporary session.', inputSchema: RunInputSchema }, async (args) => {
+  server.registerTool('screenpool_run', { description: 'Execute a sequence of browser actions in a temporary session. Supports optional recording preset, video, and action screenshots, returning the full recording manifest and artifact paths.', inputSchema: RunInputSchema }, async (args) => {
     if (ensureStarted) await ensureStarted();
     const res = await handleRun(pool, args);
     return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
   });
 
   // 14. screenpool_record_start
-  server.registerTool('screenpool_record_start', { description: 'Start session recording (events jsonl, action step screenshots, and video).', inputSchema: RecordStartInputSchema }, async (args) => {
+  server.registerTool('screenpool_record_start', { description: 'Start session recording (events JSONL, action step screenshots, and video). Can auto-create a browser session if sessionId is omitted and optional url is provided.', inputSchema: RecordStartInputSchema }, async (args) => {
     if (ensureStarted) await ensureStarted();
     const res = await handleRecordStart(pool, args);
     return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
   });
 
   // 15. screenpool_record_stop
-  server.registerTool('screenpool_record_stop', { description: 'Stop session recording and return recording manifest.', inputSchema: RecordStopInputSchema }, async (args) => {
+  server.registerTool('screenpool_record_stop', { description: 'Stop session recording and return complete recording manifest and artifact file paths. Automatically locates active recording if sessionId is omitted, and supports closeSession: true.', inputSchema: RecordStopInputSchema }, async (args) => {
     if (ensureStarted) await ensureStarted();
     const res = await handleRecordStop(pool, args);
     return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
   });
 
   // 16. screenpool_record_get
-  server.registerTool('screenpool_record_get', { description: 'Get active session recording status.', inputSchema: RecordGetInputSchema }, async (args) => {
+  server.registerTool('screenpool_record_get', { description: 'Get active session recording status. Automatically checks active session recording if sessionId is omitted.', inputSchema: RecordGetInputSchema }, async (args) => {
     if (ensureStarted) await ensureStarted();
     const res = await handleRecordGet(pool, args);
     return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };

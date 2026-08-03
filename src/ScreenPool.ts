@@ -205,6 +205,7 @@ export class ScreenPool extends EventEmitter {
       if (options.recording) {
         const manifest = await session.record.stop();
         result.recordingId = manifest.id;
+        result.recording = manifest;
       }
 
       return result;

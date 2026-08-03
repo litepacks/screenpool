@@ -376,26 +376,71 @@ export async function handleRun(pool: ScreenPool, input: any) {
 }
 
 export async function handleRecordStart(pool: ScreenPool, input: any) {
-  const session = pool.sessions.require(input.sessionId);
+  let session;
+  let autoCreated = false;
+
+  if (input.sessionId) {
+    session = pool.sessions.require(input.sessionId);
+  } else {
+    session = await pool.sessions.create(input.sessionOptions);
+    autoCreated = true;
+    if (input.url) {
+      await session.goto(input.url);
+    }
+  }
+
   const rec = await session.record.start(input.options);
   return {
+    success: true,
     recordingId: rec.id,
-    sessionId: rec.sessionId,
+    sessionId: session.id,
+    autoCreatedSession: autoCreated,
     startedAt: rec.startedAt,
     options: rec.options,
   };
 }
 
 export async function handleRecordStop(pool: ScreenPool, input: any) {
-  const session = pool.sessions.require(input.sessionId);
+  let session;
+  if (input.sessionId) {
+    session = pool.sessions.require(input.sessionId);
+  } else {
+    session = pool.sessions.findActiveRecordingSession();
+    if (!session) {
+      throw new Error('No active recording found to stop.');
+    }
+  }
+
   const manifest = await session.record.stop();
-  return manifest;
+
+  if (input.closeSession) {
+    await pool.sessions.close(session.id).catch(() => undefined);
+  }
+
+  return {
+    success: true,
+    sessionId: session.id,
+    manifest,
+    artifacts: manifest.artifacts,
+  };
 }
 
 export async function handleRecordGet(pool: ScreenPool, input: any) {
-  const session = pool.sessions.require(input.sessionId);
+  let session;
+  if (input.sessionId) {
+    session = pool.sessions.get(input.sessionId);
+  } else {
+    session = pool.sessions.findActiveRecordingSession();
+  }
+
+  if (!session) {
+    return { success: true, active: null };
+  }
+
   const active = session.record.get();
   return {
+    success: true,
+    sessionId: session.id,
     active: active ? { id: active.id, startedAt: active.startedAt } : null,
   };
 }

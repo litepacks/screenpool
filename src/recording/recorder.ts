@@ -106,6 +106,8 @@ export class SessionRecorder {
       this.cleanupBus = undefined;
     }
 
+    await this.storage.close();
+
     const manifest = buildRecordingManifest({
       id: rec.id,
       name: rec.name,
@@ -123,7 +125,6 @@ export class SessionRecorder {
     });
 
     await this.storage.saveManifest(manifest);
-    await this.storage.close();
 
     this.activeRecording = null;
     this.storage = null;

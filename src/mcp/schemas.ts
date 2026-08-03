@@ -151,7 +151,13 @@ export const RunInputSchema = z.object({
 });
 
 export const RecordStartInputSchema = z.object({
-  sessionId: z.string().min(1, 'sessionId is required'),
+  sessionId: z.string().optional().describe('Session ID to record. If omitted, a new browser session is created automatically.'),
+  url: z.string().optional().describe('Initial URL to navigate to when recording starts (used if auto-creating session).'),
+  sessionOptions: z
+    .object({
+      ttlMs: z.number().optional(),
+    })
+    .optional(),
   options: z
     .object({
       preset: z.enum(['actions', 'debug', 'visual', 'full']).optional(),
@@ -163,12 +169,13 @@ export const RecordStartInputSchema = z.object({
 });
 
 export const RecordStopInputSchema = z.object({
-  sessionId: z.string().min(1, 'sessionId is required'),
+  sessionId: z.string().optional().describe('Session ID to stop recording for. If omitted, finds active recording automatically.'),
   recordingId: z.string().optional(),
+  closeSession: z.boolean().optional().describe('Whether to close the session after stopping recording (default: true if session was auto-created, false otherwise).'),
 });
 
 export const RecordGetInputSchema = z.object({
-  sessionId: z.string().min(1, 'sessionId is required'),
+  sessionId: z.string().optional().describe('Session ID to get recording status for. If omitted, finds active recording automatically.'),
 });
 
 export type ScreenshotInput = z.infer<typeof ScreenshotInputSchema>;

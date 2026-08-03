@@ -60,4 +60,13 @@ export class SessionManager {
     await Promise.all(all.map((s) => s.close().catch(() => undefined)));
     this.sessions.clear();
   }
+
+  findActiveRecordingSession(): BrowserSessionImpl | undefined {
+    for (const session of this.sessions.values()) {
+      if (session.state !== 'closed' && session.state !== 'expired' && session.record.get()) {
+        return session;
+      }
+    }
+    return undefined;
+  }
 }

@@ -25,6 +25,14 @@ export class RecordingStorage {
     await mkdir(this.dirPath, { recursive: true });
     const eventsPath = join(this.dirPath, 'events.jsonl');
     this.eventsStream = createWriteStream(eventsPath, { flags: 'a', encoding: 'utf8' });
+    this.artifacts.push({
+      id: `art_events_${createJobId().slice(0, 6)}`,
+      type: 'events',
+      path: eventsPath,
+      mimeType: 'application/x-ndjson',
+      sizeBytes: 0,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   appendEvent(event: SessionEvent): void {
@@ -121,18 +129,26 @@ export class RecordingStorage {
 
   async saveManifest(manifest: RecordingManifest): Promise<string> {
     const manifestPath = join(this.dirPath, 'manifest.json');
-    await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
-
-    const fileStat = await stat(manifestPath).catch(() => ({ size: 0 }));
-
-    this.artifacts.push({
+    const manifestArtifact: RecordingArtifact = {
       id: `art_manifest`,
       type: 'manifest',
       path: manifestPath,
       mimeType: 'application/json',
-      sizeBytes: fileStat.size,
+      sizeBytes: 0,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    if (!manifest.artifacts.some((a) => a.type === 'manifest')) {
+      manifest.artifacts.push(manifestArtifact);
+    }
+    if (!this.artifacts.some((a) => a.type === 'manifest')) {
+      this.artifacts.push(manifestArtifact);
+    }
+
+    const content = JSON.stringify(manifest, null, 2);
+    await writeFile(manifestPath, content, 'utf8');
+    const fileStat = await stat(manifestPath).catch(() => ({ size: Buffer.byteLength(content) }));
+    manifestArtifact.sizeBytes = fileStat.size;
 
     return manifestPath;
   }
@@ -151,6 +167,11 @@ export class RecordingStorage {
         this.eventsStream?.end(() => resolve());
       });
       this.eventsStream = null;
+    }
+    const eventsArt = this.artifacts.find((a) => a.type === 'events');
+    if (eventsArt) {
+      const fileStat = await stat(eventsArt.path).catch(() => ({ size: 0 }));
+      eventsArt.sizeBytes = fileStat.size;
     }
   }
 }
