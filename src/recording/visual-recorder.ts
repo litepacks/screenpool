@@ -173,9 +173,12 @@ export class PuppeteerVisualRecorder {
     const allFrames: ScreencastFrame[] = [];
     let nativeWebmArt: RecordingArtifact | undefined;
 
+    let finalUrlFromRec: string | undefined;
+
     for (const pageId of pageIds) {
       const rec = this.pageRecorders.get(pageId);
       if (rec) {
+        finalUrlFromRec = rec.currentUrl || rec.page.url;
         allFrames.push(...rec.frames);
         if (rec.webmPath) {
           const fileStat = await stat(rec.webmPath).catch(() => undefined);
@@ -203,6 +206,7 @@ export class PuppeteerVisualRecorder {
           durationMs: 0,
           frameCount: 0,
           segments: 1,
+          finalUrl: finalUrlFromRec,
           timestampsMonotonic: true,
         },
       };
@@ -236,7 +240,7 @@ export class PuppeteerVisualRecorder {
     const firstFrameAt = firstFrame ? new Date(firstFrame.wallTime).toISOString() : undefined;
     const lastFrameAt = lastFrame ? new Date(lastFrame.wallTime).toISOString() : undefined;
     const durationMs = firstFrame && lastFrame ? Math.max(0, lastFrame.wallTime - firstFrame.wallTime) : 0;
-    const finalUrl = lastFrame ? lastFrame.url : undefined;
+    const finalUrl = lastFrame ? lastFrame.url : finalUrlFromRec;
 
     const videoMetadata: VideoMetadata = {
       durationMs,
