@@ -93,8 +93,13 @@ export class SessionRecorder {
     const completedAt = new Date().toISOString();
     const durationMs = new Date(completedAt).getTime() - new Date(rec.startedAt).getTime();
 
+    await Promise.all(this.pendingArtifacts).catch(() => undefined);
+
     if (this.options.video) {
-      await this.visualRecorder.stopAll(this.storage);
+      const videoArts = await this.visualRecorder.stopAll(this.storage);
+      for (const art of videoArts) {
+        this.storage.addArtifact(art);
+      }
     }
 
     this.eventBus.emit('recording.stopped', {
@@ -132,6 +137,8 @@ export class SessionRecorder {
     return manifest;
   }
 
+  private pendingArtifacts: Promise<void>[] = [];
+
   private handleSessionEvent(event: SessionEvent): void {
     if (!this.storage || !this.options) return;
 
@@ -148,53 +155,81 @@ export class SessionRecorder {
     const sanitized = sanitizeRecordingEvent(event, this.options.redact);
     this.storage.appendEvent(sanitized);
 
-    // Capture screenshots based on mode
-    if (event.pageId && (event.type === 'action.started' || event.type === 'action.completed' || event.type === 'action.failed')) {
-      void this.handleActionScreenshot(event);
+    const pageId = event.pageId ?? this.registry.getActive()?.id ?? this.registry.getMain()?.id;
+
+    if (pageId && (event.type === 'action.started' || event.type === 'action.completed' || event.type === 'action.failed')) {
+      const p = this.handleActionArtifacts(event, pageId);
+      this.pendingArtifacts.push(p);
     }
   }
 
-  private async handleActionScreenshot(event: SessionEvent): Promise<void> {
+  private async handleActionArtifacts(event: SessionEvent, pageId: string): Promise<void> {
     if (!this.storage || !this.options) return;
-    const mode = this.options.screenshots;
-    if (mode === 'off') return;
 
-    const page = this.registry.get(event.pageId!);
+    const page = this.registry.get(pageId);
     if (!page || page.state === 'closed') return;
 
-    let shouldCapture = false;
-    let label = 'action';
+    const screenshotMode = this.options.screenshots;
+    const htmlMode = this.options.html;
 
-    if (mode === 'each-action') {
+    let shouldCaptureScreenshot = false;
+    let screenshotLabel = 'action';
+
+    if (screenshotMode === 'each-action') {
       if (event.type === 'action.started') {
-        shouldCapture = true;
-        label = `before-${event.actionId ?? 'action'}`;
+        shouldCaptureScreenshot = true;
+        screenshotLabel = `before-${event.actionId ?? 'action'}`;
       } else if (event.type === 'action.completed') {
-        shouldCapture = true;
-        label = `after-${event.actionId ?? 'action'}`;
+        shouldCaptureScreenshot = true;
+        screenshotLabel = `after-${event.actionId ?? 'action'}`;
       }
-    } else if (mode === 'before-action' && event.type === 'action.started') {
-      shouldCapture = true;
-      label = `before-${event.actionId ?? 'action'}`;
-    } else if (mode === 'after-action' && event.type === 'action.completed') {
-      shouldCapture = true;
-      label = `after-${event.actionId ?? 'action'}`;
-    } else if (mode === 'on-error' && event.type === 'action.failed') {
-      shouldCapture = true;
-      label = `failed-${event.actionId ?? 'action'}`;
+    } else if (screenshotMode === 'before-action' && event.type === 'action.started') {
+      shouldCaptureScreenshot = true;
+      screenshotLabel = `before-${event.actionId ?? 'action'}`;
+    } else if (screenshotMode === 'after-action' && event.type === 'action.completed') {
+      shouldCaptureScreenshot = true;
+      screenshotLabel = `after-${event.actionId ?? 'action'}`;
+    } else if ((screenshotMode === 'on-error' || this.options.preset === 'debug') && event.type === 'action.failed') {
+      shouldCaptureScreenshot = true;
+      screenshotLabel = `failed-${event.actionId ?? 'action'}`;
     }
 
-    if (shouldCapture) {
+    if (shouldCaptureScreenshot) {
       try {
         const buffer = (await page.rawPage.screenshot({ fullPage: false, type: 'png' })) as Buffer;
         await this.storage.saveScreenshot({
           pageId: page.id,
           actionId: event.actionId,
-          label,
+          label: screenshotLabel,
           buffer,
         });
       } catch {
-        // ignore screenshot capture errors during recording
+        // ignore screenshot error
+      }
+    }
+
+    let shouldCaptureHtml = false;
+    let htmlLabel = 'action-html';
+
+    if ((htmlMode === 'on-error' || this.options.preset === 'debug') && event.type === 'action.failed') {
+      shouldCaptureHtml = true;
+      htmlLabel = `failed-${event.actionId ?? 'action'}`;
+    } else if (htmlMode === 'each-action' && event.type === 'action.completed') {
+      shouldCaptureHtml = true;
+      htmlLabel = `after-${event.actionId ?? 'action'}`;
+    }
+
+    if (shouldCaptureHtml) {
+      try {
+        const content = await page.rawPage.content();
+        await this.storage.saveHtml({
+          pageId: page.id,
+          actionId: event.actionId,
+          label: htmlLabel,
+          content,
+        });
+      } catch {
+        // ignore HTML capture error
       }
     }
   }

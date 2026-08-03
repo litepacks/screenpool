@@ -102,8 +102,24 @@ export const HelpInputSchema = z.object({
     .describe('Topic for documentation: "all", "tools", "diagnostics", "formats", or "examples"'),
 });
 
+import { actionSchema } from '../actions/schemas.js';
+
+export const PolicyInputSchema = z
+  .object({
+    targets: z
+      .object({
+        elementId: z.boolean().optional(),
+        semantic: z.boolean().optional(),
+        css: z.boolean().optional(),
+        point: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
 export const SessionCreateInputSchema = z.object({
   ttlMs: z.number().optional(),
+  policy: PolicyInputSchema,
   pages: z
     .object({
       maxPages: z.number().optional(),
@@ -134,12 +150,14 @@ export const ActInputSchema = z.object({
   sessionId: z.string().min(1, 'sessionId is required'),
   observationId: z.string().optional(),
   defaultPage: z.any().optional(),
-  actions: z.array(z.any()),
+  policy: PolicyInputSchema,
+  actions: z.array(actionSchema),
 });
 
 export const RunInputSchema = z.object({
   url: z.string().optional(),
-  actions: z.array(z.any()),
+  policy: PolicyInputSchema,
+  actions: z.array(actionSchema),
   recording: z
     .object({
       preset: z.enum(['actions', 'debug', 'visual', 'full']).optional(),

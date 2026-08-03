@@ -26,8 +26,29 @@ export async function extractObservedElements(
         '[role="tab"]',
         '[tabindex]:not([tabindex="-1"])',
       ];
+      const selectorString = selectors.join(',');
 
-      const elements = Array.from(doc.querySelectorAll(selectors.join(','))) as any[];
+      function collectElements(
+        root: Document | Element | ShadowRoot,
+        isShadow = false,
+        resultsList: Array<{ el: any; isShadow: boolean }> = [],
+      ): Array<{ el: any; isShadow: boolean }> {
+        const matches = root.querySelectorAll(selectorString);
+        for (const el of Array.from(matches)) {
+          if (!resultsList.some((item) => item.el === el)) {
+            resultsList.push({ el, isShadow });
+          }
+        }
+        const allNodes = root.querySelectorAll('*');
+        for (const node of Array.from(allNodes)) {
+          if (node.shadowRoot) {
+            collectElements(node.shadowRoot, true, resultsList);
+          }
+        }
+        return resultsList;
+      }
+
+      const items = collectElements(doc);
       const results: Array<{
         id: string;
         tag: string;
@@ -37,6 +58,9 @@ export async function extractObservedElements(
         text?: string;
         type?: string;
         visible: boolean;
+        inViewport: boolean;
+        interactable: boolean;
+        isShadow: boolean;
         enabled: boolean;
         editable: boolean;
         box?: { x: number; y: number; width: number; height: number };
@@ -44,26 +68,41 @@ export async function extractObservedElements(
 
       let counter = 0;
 
-      for (const el of elements) {
+      for (const item of items) {
         if (counter >= max) break;
         counter++;
         const id = `elem_${counter}`;
+        const el = item.el;
 
-        // Set stable data attribute on DOM element
-        el.setAttribute('data-screenpool-id', id);
+        // Set stable data attribute on DOM / Shadow DOM element
+        try {
+          el.setAttribute('data-screenpool-id', id);
+        } catch {
+          // ignore setAttribute issues on detached nodes
+        }
 
         const rect = el.getBoundingClientRect();
         const style = win.getComputedStyle(el);
 
-        const visible =
+        const hasCssVisibility =
           style.display !== 'none' &&
           style.visibility !== 'hidden' &&
           style.opacity !== '0' &&
           rect.width > 0 &&
           rect.height > 0;
 
+        const inViewport =
+          hasCssVisibility &&
+          rect.top < win.innerHeight &&
+          rect.bottom > 0 &&
+          rect.left < win.innerWidth &&
+          rect.right > 0;
+
+        const visible = hasCssVisibility && inViewport;
+
         const tag = el.tagName.toLowerCase();
         const enabled = !el.disabled;
+        const interactable = visible && enabled;
         const editable =
           enabled &&
           !el.readOnly &&
@@ -87,16 +126,17 @@ export async function extractObservedElements(
           text,
           type: el.type || undefined,
           visible,
+          inViewport,
+          interactable,
+          isShadow: item.isShadow,
           enabled,
           editable,
-          box: visible
-            ? {
-                x: Math.round(rect.left + win.scrollX),
-                y: Math.round(rect.top + win.scrollY),
-                width: Math.round(rect.width),
-                height: Math.round(rect.height),
-              }
-            : undefined,
+          box: {
+            x: Math.round(rect.left + win.scrollX),
+            y: Math.round(rect.top + win.scrollY),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          },
         });
       }
 

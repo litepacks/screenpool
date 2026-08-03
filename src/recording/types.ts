@@ -84,6 +84,7 @@ export interface RecordingManifest {
   };
 
   artifacts: RecordingArtifact[];
+  notes?: string[];
 
   truncated?: {
     events?: boolean;

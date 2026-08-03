@@ -9,6 +9,9 @@ export interface ObservedElement {
   text?: string;
   type?: string;
   visible: boolean;
+  inViewport?: boolean;
+  interactable?: boolean;
+  isShadow?: boolean;
   enabled: boolean;
   editable: boolean;
   box?: {

@@ -6,6 +6,28 @@ import { createJobId } from '../utils/uuid.js';
 
 export class SessionManager {
   private sessions = new Map<string, BrowserSessionImpl>();
+  private finishedManifests = new Map<string, any>();
+
+  saveFinishedManifest(sessionId: string, recordingId: string | undefined, manifest: any): void {
+    this.finishedManifests.set(sessionId, manifest);
+    if (recordingId) {
+      this.finishedManifests.set(recordingId, manifest);
+    }
+  }
+
+  getFinishedManifest(id?: string): any | undefined {
+    if (id && this.sessions.has(id)) {
+      const session = this.sessions.get(id);
+      if ((session as any)?.finishedManifest) {
+        return (session as any).finishedManifest;
+      }
+    }
+    if (!id) {
+      const values = Array.from(this.finishedManifests.values());
+      return values[values.length - 1];
+    }
+    return this.finishedManifests.get(id);
+  }
 
   constructor(private readonly getBrowser: () => Browser) {}
 
@@ -25,6 +47,9 @@ export class SessionManager {
     if (!session) return undefined;
 
     if (session.state === 'closed' || session.state === 'expired') {
+      if ((session as any).finishedManifest) {
+        this.saveFinishedManifest(sessionId, (session as any).finishedManifest.id, (session as any).finishedManifest);
+      }
       this.sessions.delete(sessionId);
       return undefined;
     }
@@ -51,6 +76,9 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (session) {
       await session.close();
+      if ((session as any).finishedManifest) {
+        this.saveFinishedManifest(sessionId, (session as any).finishedManifest.id, (session as any).finishedManifest);
+      }
       this.sessions.delete(sessionId);
     }
   }

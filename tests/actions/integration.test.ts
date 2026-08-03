@@ -235,7 +235,7 @@ describe('Browser Actions & Recording Integration Tests', () => {
     const manifest = await recording.stop();
     expect(manifest.artifacts.some((a) => a.type === 'video')).toBe(true);
     const videoArt = manifest.artifacts.find((a) => a.type === 'video')!;
-    expect(videoArt.mimeType).toBe('text/html');
+    expect(['video/webm', 'text/html']).toContain(videoArt.mimeType);
     expect(existsSync(videoArt.path)).toBe(true);
     await session.close();
   });

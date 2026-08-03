@@ -35,6 +35,12 @@ export class RecordingStorage {
     });
   }
 
+  addArtifact(artifact: RecordingArtifact): void {
+    if (!this.artifacts.some((a) => a.id === artifact.id || a.path === artifact.path)) {
+      this.artifacts.push(artifact);
+    }
+  }
+
   appendEvent(event: SessionEvent): void {
     if (!this.eventsStream) return;
     this.eventCount++;

@@ -50,6 +50,7 @@ export class BrowserSessionImpl {
 
     if (options.ttlMs) {
       this.expiresAt = new Date(now.getTime() + options.ttlMs).toISOString();
+      this.ttlTimer = setTimeout(() => void this.handleExpired(), options.ttlMs);
     }
 
     this.pagePolicy = resolvePagePolicy(options.pages);
@@ -232,12 +233,23 @@ export class BrowserSessionImpl {
   async close(): Promise<void> {
     if (this.state === 'closed' || this.state === 'closing') return;
 
+    const previousState = this.state;
     this.state = 'closing';
     if (this.ttlTimer) clearTimeout(this.ttlTimer);
 
     // Finalize recording if active
     if (this.recorder.isActive) {
-      await this.recorder.stop().catch(() => undefined);
+      const manifest = await this.recorder.stop().catch(() => undefined);
+      if (manifest) {
+        if (previousState === 'expired') {
+          manifest.errors = manifest.errors ?? [];
+          manifest.errors.push({
+            code: 'SESSION_EXPIRED_TTL',
+            message: `Session ${this.id} expired due to TTL limit.`,
+          });
+        }
+        (this as any).finishedManifest = manifest;
+      }
     }
 
     this.registry.detachListeners();

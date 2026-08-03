@@ -312,14 +312,46 @@ export async function handleHelp(input: HelpInput) {
     },
   };
 
+  const shadowDomDoc = {
+    support: 'Full recursive scanning of open Shadow DOM roots for observation and target resolution.',
+    elements: 'Buttons, textboxes, links, and custom Web Components inside open shadow roots are automatically discovered.',
+    resolvers: 'Target resolvers (role, label, text, element-id, css, test-id) cross shadow root boundaries transparently.',
+    closedShadowRoots: 'Closed shadow roots cannot be accessed via standard DOM APIs and will return a CLOSED_SHADOW_ROOT_NOT_ACCESSIBLE error.',
+  };
+
+  const actionSchemasDoc = {
+    click: { type: 'click', target: { by: 'role', role: 'button', name: 'Submit' } },
+    fill: { type: 'fill', target: { by: 'role', role: 'textbox', name: 'Search' }, value: 'fetch' },
+    press: { type: 'press', key: 'Enter' },
+    select: { type: 'select', target: { by: 'role', role: 'combobox' }, values: ['option-1'] },
+    scroll: { type: 'scroll', deltaY: 500, behavior: 'smooth' },
+    wait: { type: 'wait', durationMs: 2000 },
+    screenshot: { type: 'screenshot', fullPage: true, format: 'png' },
+    pageActivate: { type: 'page.activate', targetPage: { by: 'alias', value: 'popup1' } },
+    pageClose: { type: 'page.close', targetPage: { by: 'active' } },
+    pageWait: { type: 'page.wait', condition: { type: 'created', urlMatches: 'https://*' } },
+  };
+
+  const policyDoc = {
+    default: 'CSS and Point targets are disabled by default for AI safety.',
+    enablementExample: {
+      policy: {
+        targets: {
+          css: true,
+          point: true,
+        },
+      },
+    },
+  };
+
   if (topic === 'tools') {
-    return { topic, tools: toolsDoc };
+    return { topic, tools: toolsDoc, shadowDom: shadowDomDoc, actions: actionSchemasDoc };
   }
   if (topic === 'diagnostics') {
     return { topic, diagnostics: diagnosticsDoc };
   }
   if (topic === 'examples') {
-    return { topic, examples: examplesDoc };
+    return { topic, examples: examplesDoc, actions: actionSchemasDoc, policy: policyDoc };
   }
   if (topic === 'formats') {
     return {
@@ -332,6 +364,9 @@ export async function handleHelp(input: HelpInput) {
     doc: 'Screenpool MCP Documentation',
     topic,
     tools: toolsDoc,
+    shadowDom: shadowDomDoc,
+    actions: actionSchemasDoc,
+    policy: policyDoc,
     diagnostics: diagnosticsDoc,
     formats: formatsDoc,
     examples: examplesDoc,
@@ -366,12 +401,22 @@ export async function handleObserve(pool: ScreenPool, input: any) {
 
 export async function handleAct(pool: ScreenPool, input: any) {
   const session = pool.sessions.require(input.sessionId);
+  if (input.policy) {
+    Object.assign(session.actionPolicy.targets, input.policy.targets);
+  }
   const result = await session.act(input);
   return result;
 }
 
 export async function handleRun(pool: ScreenPool, input: any) {
-  const result = await pool.run(input);
+  const sessionOptions = {
+    ...input.sessionOptions,
+    policy: input.policy ?? input.sessionOptions?.policy,
+  };
+  const result = await pool.run({
+    ...input,
+    sessionOptions,
+  });
   return result;
 }
 
@@ -379,10 +424,15 @@ export async function handleRecordStart(pool: ScreenPool, input: any) {
   let session;
   let autoCreated = false;
 
+  const sessionOpts = {
+    ...input.sessionOptions,
+    policy: input.policy ?? input.sessionOptions?.policy,
+  };
+
   if (input.sessionId) {
     session = pool.sessions.require(input.sessionId);
   } else {
-    session = await pool.sessions.create(input.sessionOptions);
+    session = await pool.sessions.create(sessionOpts);
     autoCreated = true;
     if (input.url) {
       await session.goto(input.url);
@@ -403,23 +453,31 @@ export async function handleRecordStart(pool: ScreenPool, input: any) {
 export async function handleRecordStop(pool: ScreenPool, input: any) {
   let session;
   if (input.sessionId) {
-    session = pool.sessions.require(input.sessionId);
+    session = pool.sessions.get(input.sessionId);
   } else {
     session = pool.sessions.findActiveRecordingSession();
-    if (!session) {
-      throw new Error('No active recording found to stop.');
+  }
+
+  let manifest;
+  let targetSessionId = session?.id ?? input.sessionId ?? 'closed_session';
+
+  if (session && session.record.get()) {
+    manifest = await session.record.stop();
+    pool.sessions.saveFinishedManifest(session.id, manifest.id, manifest);
+  } else {
+    manifest = pool.sessions.getFinishedManifest(input.sessionId || input.recordingId);
+    if (!manifest) {
+      throw new Error('No active or finished recording found to stop.');
     }
   }
 
-  const manifest = await session.record.stop();
-
-  if (input.closeSession) {
+  if (input.closeSession && session) {
     await pool.sessions.close(session.id).catch(() => undefined);
   }
 
   return {
     success: true,
-    sessionId: session.id,
+    sessionId: targetSessionId,
     manifest,
     artifacts: manifest.artifacts,
   };

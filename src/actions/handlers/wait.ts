@@ -12,8 +12,15 @@ export async function handleWait(params: {
 }): Promise<void> {
   const { page, action, policy, observationStore } = params;
 
-  if (action.durationMs) {
-    await new Promise((r) => setTimeout(r, action.durationMs));
+  const durationMs = action.durationMs ?? (action as any).ms;
+
+  if (durationMs) {
+    const start = Date.now();
+    await new Promise((r) => setTimeout(r, durationMs));
+    const elapsed = Date.now() - start;
+    if (elapsed < durationMs) {
+      await new Promise((r) => setTimeout(r, durationMs - elapsed));
+    }
     return;
   }
 

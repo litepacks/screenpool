@@ -133,6 +133,7 @@ export const scrollActionSchema = baseActionSchema.extend({
 export const waitActionSchema = baseActionSchema.extend({
   type: z.literal('wait'),
   durationMs: z.number().optional(),
+  ms: z.number().optional(),
   selector: targetSchema.optional(),
   state: z.enum(['attached', 'detached', 'visible', 'hidden']).optional(),
 });

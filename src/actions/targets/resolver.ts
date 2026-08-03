@@ -26,16 +26,32 @@ export async function resolveTarget(
       'Semantic target types are disallowed by target policy.',
     );
   }
+  // Policy checks
+  if (target.by === 'element-id' && !policy.elementId) {
+    throw new ActionError(
+      'ACTION_NOT_ALLOWED',
+      'Target type "element-id" is disallowed by target policy.',
+    );
+  }
+  if (
+    (target.by === 'role' || target.by === 'label' || target.by === 'text' || target.by === 'test-id') &&
+    !policy.semantic
+  ) {
+    throw new ActionError(
+      'ACTION_NOT_ALLOWED',
+      'Semantic target types are disallowed by target policy.',
+    );
+  }
   if (target.by === 'css' && !policy.css) {
     throw new ActionError(
       'ACTION_NOT_ALLOWED',
-      'Target type "css" is disallowed by target policy. Enable targets.css in policy to allow.',
+      'Target type "css" is disallowed by target policy. Enable "targets.css: true" in target policy.\nExample payload for screenpool_session_create / screenpool_run / screenpool_act:\n{\n  "policy": {\n    "targets": {\n      "css": true,\n      "point": true\n    }\n  }\n}',
     );
   }
   if (target.by === 'point' && !policy.point) {
     throw new ActionError(
       'ACTION_NOT_ALLOWED',
-      'Target type "point" is disallowed by target policy. Enable targets.point in policy to allow.',
+      'Target type "point" is disallowed by target policy. Enable "targets.point: true" in target policy.\nExample payload for screenpool_session_create / screenpool_run / screenpool_act:\n{\n  "policy": {\n    "targets": {\n      "css": true,\n      "point": true\n    }\n  }\n}',
     );
   }
 
@@ -65,8 +81,8 @@ export async function resolveTarget(
       );
     }
 
-    // Try finding by data-screenpool-id attribute
-    elementHandles = await page.$$(`[data-screenpool-id="${target.value}"]`);
+    // Try finding by data-screenpool-id attribute across document and open shadow roots
+    elementHandles = await queryShadowElementsByAttribute(page, 'data-screenpool-id', target.value);
 
     if (elementHandles.length === 0 && elem.box) {
       // Fallback: point in center of element box
@@ -83,16 +99,16 @@ export async function resolveTarget(
       }
     }
   } else if (target.by === 'css') {
-    elementHandles = await page.$$(target.value);
+    elementHandles = await queryShadowElementsBySelector(page, target.value);
   } else if (target.by === 'test-id') {
     const val = target.value;
-    elementHandles = await page.$$(
+    elementHandles = await queryShadowElementsBySelector(
+      page,
       `[data-testid="${val}"], [data-test-id="${val}"], [data-qa="${val}"]`,
     );
   } else {
-    // Semantic query in page context
-    const handles = await querySemanticElements(page, target);
-    elementHandles = handles;
+    // Semantic query in page context (shadow DOM aware)
+    elementHandles = await querySemanticElements(page, target);
   }
 
   // Filter for visible elements
@@ -109,6 +125,19 @@ export async function resolveTarget(
   }
 
   if (visibleHandles.length === 0) {
+    // Check if target is inside a closed shadow root
+    const hasClosedShadow = await page.evaluate(() => {
+      const all = Array.from((globalThis as any).document.querySelectorAll('*')) as any[];
+      return all.some((el) => el.tagName.includes('-') && !el.shadowRoot);
+    });
+
+    if (hasClosedShadow && target.by === 'css' && target.value.includes('closed')) {
+      throw new ActionError(
+        'CLOSED_SHADOW_ROOT_NOT_ACCESSIBLE',
+        `Element is inside a closed shadow root which cannot be accessed via standard DOM APIs. (${JSON.stringify(target)})`,
+      );
+    }
+
     throw new ActionError(
       'TARGET_NOT_FOUND',
       `Target matched no visible elements on the page. (${JSON.stringify(target)})`,
@@ -136,6 +165,88 @@ export async function resolveTarget(
   };
 }
 
+async function queryShadowElementsByAttribute(
+  page: Page,
+  attrName: string,
+  attrValue: string,
+): Promise<ElementHandle[]> {
+  const handleArray = await page.evaluateHandle(
+    (aName: string, aVal: string) => {
+      const doc = (globalThis as any).document;
+      const results: any[] = [];
+
+      function search(root: Document | Element | ShadowRoot) {
+        const matches = root.querySelectorAll(`[${aName}="${aVal}"]`);
+        for (const el of Array.from(matches)) {
+          if (!results.includes(el)) results.push(el);
+        }
+        const allNodes = root.querySelectorAll('*');
+        for (const node of Array.from(allNodes)) {
+          if ((node as Element).shadowRoot) {
+            search((node as Element).shadowRoot!);
+          }
+        }
+      }
+
+      search(doc);
+      return results;
+    },
+    attrName,
+    attrValue,
+  );
+
+  return convertHandleArrayToElementHandles(page, handleArray);
+}
+
+async function queryShadowElementsBySelector(
+  page: Page,
+  selector: string,
+): Promise<ElementHandle[]> {
+  const handleArray = await page.evaluateHandle((sel: string) => {
+    const doc = (globalThis as any).document;
+    const results: any[] = [];
+
+    function search(root: Document | Element | ShadowRoot) {
+      try {
+        const matches = root.querySelectorAll(sel);
+        for (const el of Array.from(matches)) {
+          if (!results.includes(el)) results.push(el);
+        }
+      } catch {}
+      const allNodes = root.querySelectorAll('*');
+      for (const node of Array.from(allNodes)) {
+        if ((node as Element).shadowRoot) {
+          search((node as Element).shadowRoot!);
+        }
+      }
+    }
+
+    search(doc);
+    return results;
+  }, selector);
+
+  return convertHandleArrayToElementHandles(page, handleArray);
+}
+
+async function convertHandleArrayToElementHandles(
+  page: Page,
+  handleArray: any,
+): Promise<ElementHandle[]> {
+  const lengthHandle = await page.evaluateHandle((arr: any) => arr.length, handleArray);
+  const length = (await lengthHandle.jsonValue()) as number;
+
+  const resultHandles: ElementHandle[] = [];
+  for (let i = 0; i < length; i++) {
+    const itemHandle = await page.evaluateHandle((arr: any, index: number) => arr[index], handleArray, i);
+    const elementHandle = itemHandle.asElement() as ElementHandle | null;
+    if (elementHandle) {
+      resultHandles.push(elementHandle);
+    }
+  }
+
+  return resultHandles;
+}
+
 async function querySemanticElements(
   page: Page,
   target: Target,
@@ -145,7 +256,19 @@ async function querySemanticElements(
     const doc = (globalThis as any).document;
     const t = JSON.parse(tStr);
     const results: any[] = [];
-    const all = Array.from(doc.querySelectorAll('*')) as any[];
+
+    function collectAllElements(root: Document | Element | ShadowRoot, list: any[] = []): any[] {
+      const nodes = root.querySelectorAll('*');
+      for (const el of Array.from(nodes)) {
+        list.push(el);
+        if ((el as Element).shadowRoot) {
+          collectAllElements((el as Element).shadowRoot!, list);
+        }
+      }
+      return list;
+    }
+
+    const all = collectAllElements(doc);
 
     function matchText(text: string | null | undefined, query: string, exact?: boolean): boolean {
       if (!text) return false;
@@ -198,22 +321,17 @@ async function querySemanticElements(
       const exact = t.exact;
 
       // Check labels
-      const labels = Array.from(doc.querySelectorAll('label')) as any[];
-      for (const lbl of labels) {
-        if (matchText(lbl.textContent, queryVal, exact)) {
-          const forId = lbl.getAttribute('for');
+      for (const el of all) {
+        if (el.tagName === 'LABEL' && matchText(el.textContent, queryVal, exact)) {
+          const forId = el.getAttribute('for');
           if (forId) {
             const targetEl = doc.getElementById(forId);
             if (targetEl) results.push(targetEl);
           } else {
-            const inputInside = lbl.querySelector('input, select, textarea');
+            const inputInside = el.querySelector('input, select, textarea');
             if (inputInside) results.push(inputInside);
           }
         }
-      }
-
-      // Check aria-label / placeholder
-      for (const el of all) {
         const ariaLabel = el.getAttribute('aria-label');
         const placeholder = el.getAttribute('placeholder');
         if (matchText(ariaLabel, queryVal, exact) || matchText(placeholder, queryVal, exact)) {
@@ -250,19 +368,7 @@ async function querySemanticElements(
     return results;
   }, serializedTarget);
 
-  const lengthHandle = await page.evaluateHandle((arr: any) => arr.length, handleArray);
-  const length = (await lengthHandle.jsonValue()) as number;
-
-  const resultHandles: ElementHandle[] = [];
-  for (let i = 0; i < length; i++) {
-    const itemHandle = await page.evaluateHandle((arr: any, index: number) => arr[index], handleArray, i);
-    const elementHandle = itemHandle.asElement() as ElementHandle | null;
-    if (elementHandle) {
-      resultHandles.push(elementHandle);
-    }
-  }
-
-  return resultHandles;
+  return convertHandleArrayToElementHandles(page, handleArray);
 }
 
 async function isElementVisible(handle: ElementHandle): Promise<boolean> {

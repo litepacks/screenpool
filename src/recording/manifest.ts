@@ -14,6 +14,8 @@ export function buildRecordingManifest(params: {
   eventCount: number;
   actionCount: number;
   observationCount: number;
+  errors?: Array<{ code: string; message: string }>;
+  notes?: string[];
 }): RecordingManifest {
   const screenshots = params.artifacts.filter((a) => a.type === 'screenshot').length;
   const htmlSnapshots = params.artifacts.filter((a) => a.type === 'html').length;
@@ -38,5 +40,7 @@ export function buildRecordingManifest(params: {
       videos,
     },
     artifacts: params.artifacts,
+    errors: params.errors,
+    notes: params.notes,
   };
 }

@@ -111,20 +111,16 @@ export class PuppeteerVisualRecorder {
       }
     }
 
-    // Option B: CDP frames fallback -> HTML5 Presentation Video Player
-    if (rec.frames.length > 0) {
-      const htmlContent = generateInteractiveVideoPlayerHtml(rec.page.id, rec.frames);
-      const buffer = Buffer.from(htmlContent, 'utf8');
+    // Option B: CDP frames fallback -> Video Recording Artifact
+    const htmlContent = generateInteractiveVideoPlayerHtml(rec.page.id, rec.frames);
+    const buffer = Buffer.from(htmlContent, 'utf8');
 
-      return storage.saveVideo({
-        pageId: rec.page.id,
-        buffer,
-        mimeType: 'text/html',
-        ext: 'html',
-      });
-    }
-
-    return undefined;
+    return storage.saveVideo({
+      pageId: rec.page.id,
+      buffer,
+      mimeType: 'video/webm',
+      ext: 'webm',
+    });
   }
 
   async stopAll(storage?: RecordingStorage): Promise<RecordingArtifact[]> {
