@@ -114,7 +114,7 @@ export class PuppeteerVisualRecorder {
         let frameSegmentId = rec.currentSegmentId;
         for (let i = rec.navigationMarkers.length - 1; i >= 0; i--) {
           const marker = rec.navigationMarkers[i];
-          if (wallTime >= marker.timestamp) {
+          if (marker && wallTime >= marker.timestamp) {
             frameUrl = marker.url;
             frameSegmentId = i + 1;
             break;
@@ -221,18 +221,22 @@ export class PuppeteerVisualRecorder {
 
     let rawTimestampsMonotonic = true;
     for (let i = 1; i < allFrames.length; i++) {
-      if (allFrames[i].wallTime <= allFrames[i - 1].wallTime) {
+      const curr = allFrames[i];
+      const prev = allFrames[i - 1];
+      if (curr && prev && curr.wallTime <= prev.wallTime) {
         rawTimestampsMonotonic = false;
-        allFrames[i].wallTime = allFrames[i - 1].wallTime + 33;
+        curr.wallTime = prev.wallTime + 33;
       }
     }
 
     const frameCount = allFrames.length;
     const segmentsCount = Math.max(1, new Set(allFrames.map((f) => f.segmentId)).size);
-    const firstFrameAt = frameCount > 0 ? new Date(allFrames[0].wallTime).toISOString() : undefined;
-    const lastFrameAt = frameCount > 0 ? new Date(allFrames[frameCount - 1].wallTime).toISOString() : undefined;
-    const durationMs = frameCount > 0 ? Math.max(0, allFrames[frameCount - 1].wallTime - allFrames[0].wallTime) : 0;
-    const finalUrl = frameCount > 0 ? allFrames[frameCount - 1].url : undefined;
+    const firstFrame = allFrames[0];
+    const lastFrame = allFrames[frameCount - 1];
+    const firstFrameAt = firstFrame ? new Date(firstFrame.wallTime).toISOString() : undefined;
+    const lastFrameAt = lastFrame ? new Date(lastFrame.wallTime).toISOString() : undefined;
+    const durationMs = firstFrame && lastFrame ? Math.max(0, lastFrame.wallTime - firstFrame.wallTime) : 0;
+    const finalUrl = lastFrame ? lastFrame.url : undefined;
 
     const videoMetadata: VideoMetadata = {
       durationMs,

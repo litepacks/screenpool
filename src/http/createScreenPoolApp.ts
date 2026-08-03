@@ -36,7 +36,7 @@ export function createScreenPoolApp(
   app.post('/screenshot', async (c) => {
     const body = await parseJson<ScreenshotOptions>(c);
     const result = await pool.screenshot(body);
-    return new Response(result.buffer, {
+    return new Response(new Uint8Array(result.buffer), {
       headers: { 'Content-Type': result.contentType, 'X-Job-Id': result.jobId },
     });
   });
@@ -44,7 +44,7 @@ export function createScreenPoolApp(
   app.post('/pdf', async (c) => {
     const body = await parseJson<PdfOptions>(c);
     const result = await pool.pdf(body);
-    return new Response(result.buffer, {
+    return new Response(new Uint8Array(result.buffer), {
       headers: { 'Content-Type': result.contentType, 'X-Job-Id': result.jobId },
     });
   });
@@ -52,7 +52,7 @@ export function createScreenPoolApp(
   app.post('/html-to-image', async (c) => {
     const body = await parseJson<ScreenshotOptions>(c);
     const result = await pool.htmlToImage(body);
-    return new Response(result.buffer, {
+    return new Response(new Uint8Array(result.buffer), {
       headers: { 'Content-Type': result.contentType, 'X-Job-Id': result.jobId },
     });
   });
@@ -60,7 +60,7 @@ export function createScreenPoolApp(
   app.post('/html-to-pdf', async (c) => {
     const body = await parseJson<PdfOptions>(c);
     const result = await pool.htmlToPdf(body);
-    return new Response(result.buffer, {
+    return new Response(new Uint8Array(result.buffer), {
       headers: { 'Content-Type': result.contentType, 'X-Job-Id': result.jobId },
     });
   });

@@ -41,8 +41,9 @@ export async function extractObservedElements(
         }
         const allNodes = root.querySelectorAll('*');
         for (const node of Array.from(allNodes)) {
-          if (node.shadowRoot) {
-            collectElements(node.shadowRoot, true, resultsList);
+          const el = node as Element;
+          if (el.shadowRoot) {
+            collectElements(el.shadowRoot, true, resultsList);
           }
         }
         return resultsList;
