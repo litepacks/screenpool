@@ -15,7 +15,7 @@ import type {
   WaitAction,
 } from './types.js';
 import type { PageRegistry } from '../pages/registry.js';
-import type { PagePolicy } from '../pages/types.js';
+import type { PagePolicy, ManagedPage } from '../pages/types.js';
 import type { ActionPolicy } from './policy/types.js';
 import type { SessionEventBus } from '../sessions/event-bus.js';
 import type { ObservationStore } from '../observations/store.js';
@@ -139,6 +139,8 @@ export class ActionOrchestrator {
       data: { actionType: action.type, index },
     });
 
+    let page: ManagedPage | undefined;
+
     try {
       // 1. Schema Validation
       actionSchema.parse(action);
@@ -148,7 +150,10 @@ export class ActionOrchestrator {
 
       // 3. Resolve Target Page
       const pageRef = action.page ?? request.defaultPage ?? { by: 'active' };
-      const page = this.registry.resolve(pageRef);
+      page = this.registry.resolve(pageRef);
+      if (!page) {
+        throw new ActionError('PAGE_NOT_FOUND', 'Target page not found.');
+      }
 
       if (page.state === 'closed') {
         throw new ActionError('PAGE_CLOSED', `Target page ${page.id} is closed.`);
@@ -167,8 +172,8 @@ export class ActionOrchestrator {
 
       // 5. Page Context Stabilization (if previous step triggered navigation)
       try {
-        await page.rawPage.evaluate(() => true).catch(async () => {
-          await page.rawPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5_000 }).catch(() => undefined);
+        await page!.rawPage.evaluate(() => true).catch(async () => {
+          await page!.rawPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5_000 }).catch(() => undefined);
         });
       } catch {
         // ignore
@@ -321,6 +326,13 @@ export class ActionOrchestrator {
         data: { status: stepResult.status },
       });
 
+      if (isSuccess && ['click', 'fill', 'press', 'select', 'scroll'].includes(action.type)) {
+        const settleMs = (request as any)?.recording?.visualSettleMs ?? 150;
+        if (settleMs > 0) {
+          await new Promise((r) => setTimeout(r, settleMs));
+        }
+      }
+
       return stepResult;
     } catch (error) {
       const err = error instanceof ActionError
@@ -331,6 +343,7 @@ export class ActionOrchestrator {
 
       this.eventBus.emit('action.failed', {
         actionId: stepId,
+        pageId: page?.id,
         data: { code: err.code, message: err.message },
       });
 

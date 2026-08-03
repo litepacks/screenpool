@@ -95,11 +95,16 @@ export class SessionRecorder {
 
     await Promise.all(this.pendingArtifacts).catch(() => undefined);
 
+    let videoMetadata;
+    let recordingWarnings;
+
     if (this.options.video) {
-      const videoArts = await this.visualRecorder.stopAll(this.storage);
-      for (const art of videoArts) {
+      const stopRes = await this.visualRecorder.stopAll(this.storage);
+      for (const art of stopRes.artifacts) {
         this.storage.addArtifact(art);
       }
+      videoMetadata = stopRes.videoMetadata;
+      recordingWarnings = stopRes.recordingWarnings;
     }
 
     this.eventBus.emit('recording.stopped', {
@@ -127,6 +132,8 @@ export class SessionRecorder {
       eventCount: this.storage.getEventCount(),
       actionCount: this.actionCount,
       observationCount: this.observationCount,
+      video: videoMetadata,
+      recordingWarnings,
     });
 
     await this.storage.saveManifest(manifest);

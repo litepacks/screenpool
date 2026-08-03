@@ -32,6 +32,7 @@ export interface RecordingOptions {
   screenshots?: ScreenshotRecordingMode;
   html?: HtmlRecordingMode;
   video?: boolean | { mode: 'per-page'; format?: 'webm' };
+  visualSettleMs?: number;
 
   artifactsDir?: string;
   maxEvents?: number;
@@ -43,6 +44,16 @@ export interface RecordingOptions {
     queryParams?: string[];
     jsonKeys?: string[];
   };
+}
+
+export interface VideoMetadata {
+  durationMs: number;
+  frameCount: number;
+  segments: number;
+  firstFrameAt?: string;
+  lastFrameAt?: string;
+  finalUrl?: string;
+  timestampsMonotonic: boolean;
 }
 
 export interface RecordingArtifact {
@@ -82,6 +93,9 @@ export interface RecordingManifest {
     htmlSnapshots: number;
     videos: number;
   };
+
+  video?: VideoMetadata;
+  recordingWarnings?: string[];
 
   artifacts: RecordingArtifact[];
   notes?: string[];

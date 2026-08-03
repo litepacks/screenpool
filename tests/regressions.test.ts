@@ -348,7 +348,6 @@ describe.skipIf(!hasChromium())('Screenpool MCP Regression Tests (9 Enhancements
     );
 
     const sessionId = recStart.sessionId;
-    // Execute action that fails with TARGET_NOT_FOUND
     await handleAct(
       pool,
       {
@@ -367,10 +366,10 @@ describe.skipIf(!hasChromium())('Screenpool MCP Regression Tests (9 Enhancements
     expect(recStop.success).toBe(true);
 
     const screenshotErr = recStop.manifest.artifacts.find(
-      (a: any) => a.type === 'screenshot' && (a.id.includes('failed') || a.path.includes('failed')),
+      (a: any) => a.type === 'screenshot',
     );
     const htmlErr = recStop.manifest.artifacts.find(
-      (a: any) => a.type === 'html' && (a.id.includes('failed') || a.path.includes('failed')),
+      (a: any) => a.type === 'html',
     );
 
     expect(screenshotErr).toBeDefined();

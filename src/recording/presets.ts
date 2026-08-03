@@ -20,6 +20,7 @@ export function resolveRecordingOptions(options: RecordingOptions = {}): Require
         screenshots: 'off',
         html: 'off',
         video: false,
+        visualSettleMs: 0,
         artifactsDir: options.artifactsDir ?? '.screenpool/recordings',
         maxEvents: 5_000,
         maxScreenshots: 50,
@@ -46,6 +47,7 @@ export function resolveRecordingOptions(options: RecordingOptions = {}): Require
         screenshots: 'on-error',
         html: 'on-error',
         video: false,
+        visualSettleMs: 150,
         artifactsDir: options.artifactsDir ?? '.screenpool/recordings',
         maxEvents: 10_000,
         maxScreenshots: 100,
@@ -72,6 +74,7 @@ export function resolveRecordingOptions(options: RecordingOptions = {}): Require
         screenshots: 'each-action',
         html: 'off',
         video: true,
+        visualSettleMs: 150,
         artifactsDir: options.artifactsDir ?? '.screenpool/recordings',
         maxEvents: 5_000,
         maxScreenshots: 200,
@@ -98,6 +101,7 @@ export function resolveRecordingOptions(options: RecordingOptions = {}): Require
         screenshots: 'each-action',
         html: 'each-action',
         video: true,
+        visualSettleMs: 150,
         artifactsDir: options.artifactsDir ?? '.screenpool/recordings',
         maxEvents: 50_000,
         maxScreenshots: 500,
@@ -110,6 +114,9 @@ export function resolveRecordingOptions(options: RecordingOptions = {}): Require
       };
       break;
   }
+
+  const isVideoEnabled = options.video ?? defaults.video;
+  const defaultSettle = isVideoEnabled ? 150 : defaults.visualSettleMs;
 
   // Explicit option overrides
   return {
@@ -125,6 +132,7 @@ export function resolveRecordingOptions(options: RecordingOptions = {}): Require
     screenshots: options.screenshots ?? defaults.screenshots,
     html: options.html ?? defaults.html,
     video: options.video ?? defaults.video,
+    visualSettleMs: options.visualSettleMs ?? defaultSettle,
     artifactsDir: options.artifactsDir ?? defaults.artifactsDir,
     maxEvents: options.maxEvents ?? defaults.maxEvents,
     maxScreenshots: options.maxScreenshots ?? defaults.maxScreenshots,

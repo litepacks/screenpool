@@ -1,4 +1,4 @@
-import type { RecordedPageSummary, RecordingArtifact, RecordingManifest, RecordingOptions } from './types.js';
+import type { RecordedPageSummary, RecordingArtifact, RecordingManifest, RecordingOptions, VideoMetadata } from './types.js';
 
 export function buildRecordingManifest(params: {
   id: string;
@@ -14,6 +14,8 @@ export function buildRecordingManifest(params: {
   eventCount: number;
   actionCount: number;
   observationCount: number;
+  video?: VideoMetadata;
+  recordingWarnings?: string[];
   errors?: Array<{ code: string; message: string }>;
   notes?: string[];
 }): RecordingManifest {
@@ -39,6 +41,8 @@ export function buildRecordingManifest(params: {
       htmlSnapshots,
       videos,
     },
+    video: params.video,
+    recordingWarnings: params.recordingWarnings,
     artifacts: params.artifacts,
     errors: params.errors,
     notes: params.notes,

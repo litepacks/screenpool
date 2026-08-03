@@ -2,13 +2,24 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CDPSession } from 'puppeteer-core';
 import type { ManagedPage } from '../pages/types.js';
-import type { RecordingArtifact } from './types.js';
+import type { RecordingArtifact, VideoMetadata } from './types.js';
 import type { RecordingStorage } from './storage.js';
 import { createJobId } from '../utils/uuid.js';
 
-interface ScreencastFrame {
+export interface ScreencastFrame {
   data: string; // base64 JPEG
   timestamp: number;
+  wallTime: number;
+  pageId: string;
+  url: string;
+  frameId: number;
+  segmentId: number;
+}
+
+export interface StopAllResult {
+  artifacts: RecordingArtifact[];
+  videoMetadata?: VideoMetadata;
+  recordingWarnings?: string[];
 }
 
 interface PageRecorder {
@@ -18,6 +29,11 @@ interface PageRecorder {
   client?: CDPSession | null;
   frames: ScreencastFrame[];
   startTime: number;
+  currentUrl: string;
+  navigationMarkers: Array<{ url: string; timestamp: number }>;
+  currentSegmentId: number;
+  frameCounter: number;
+  onFrameNavigated?: (frame: any) => void;
 }
 
 export class PuppeteerVisualRecorder {
@@ -27,12 +43,40 @@ export class PuppeteerVisualRecorder {
     if (this.pageRecorders.has(page.id)) return;
 
     const rawPage = page.rawPage as any;
+    const initialUrl = page.url || (typeof rawPage.url === 'function' ? rawPage.url() : '');
+    const startTime = Date.now();
+
     const rec: PageRecorder = {
       page,
       frames: [],
-      startTime: Date.now(),
+      startTime,
+      currentUrl: initialUrl,
+      navigationMarkers: [{ url: initialUrl, timestamp: startTime }],
+      currentSegmentId: 1,
+      frameCounter: 0,
     };
     this.pageRecorders.set(page.id, rec);
+
+    // Track navigation events on page to update segment markers
+    const onFrameNavigated = (frame: any) => {
+      try {
+        if (!frame || typeof frame.url !== 'function') return;
+        if (typeof rawPage.mainFrame === 'function' && frame === rawPage.mainFrame()) {
+          const newUrl = frame.url();
+          const now = Date.now();
+          rec.currentSegmentId++;
+          rec.currentUrl = newUrl;
+          rec.navigationMarkers.push({ url: newUrl, timestamp: now });
+        }
+      } catch {
+        // ignore navigation listener error
+      }
+    };
+
+    if (typeof rawPage.on === 'function') {
+      rawPage.on('framenavigated', onFrameNavigated);
+      rec.onFrameNavigated = onFrameNavigated;
+    }
 
     // 1. Primary approach: Try native Puppeteer page.screencast({ path }) if available
     if (typeof rawPage.screencast === 'function' && storage) {
@@ -52,15 +96,40 @@ export class PuppeteerVisualRecorder {
       rec.client = client;
 
       client.on('Page.screencastFrame', async ({ sessionId, data, metadata }: any) => {
-        rec.frames.push({
-          data,
-          timestamp: metadata.timestamp || Date.now() / 1000,
-        });
         try {
           await client.send('Page.screencastFrameAck', { sessionId });
         } catch {
-          // ignore
+          // ignore ACK error
         }
+
+        const wallTime = Date.now();
+        rec.frameCounter++;
+
+        let frameTime = wallTime;
+        if (typeof metadata?.timestamp === 'number' && metadata.timestamp > 0) {
+          frameTime = metadata.timestamp < 10000000000 ? metadata.timestamp * 1000 : metadata.timestamp;
+        }
+
+        let frameUrl = rec.currentUrl;
+        let frameSegmentId = rec.currentSegmentId;
+        for (let i = rec.navigationMarkers.length - 1; i >= 0; i--) {
+          const marker = rec.navigationMarkers[i];
+          if (wallTime >= marker.timestamp) {
+            frameUrl = marker.url;
+            frameSegmentId = i + 1;
+            break;
+          }
+        }
+
+        rec.frames.push({
+          data,
+          timestamp: frameTime,
+          wallTime,
+          pageId: page.id,
+          url: frameUrl,
+          frameId: rec.frameCounter,
+          segmentId: frameSegmentId,
+        });
       });
 
       await client.send('Page.startScreencast', {
@@ -75,82 +144,152 @@ export class PuppeteerVisualRecorder {
 
   async detach(pageId: string): Promise<void> {
     const rec = this.pageRecorders.get(pageId);
-    if (rec?.screencast) {
+    if (!rec) return;
+
+    if (rec.screencast) {
       try {
         await rec.screencast.stop().catch(() => undefined);
       } catch {}
     }
-    if (rec?.client) {
+    if (rec.client) {
       try {
         await rec.client.send('Page.stopScreencast').catch(() => undefined);
+        // Wait 150ms flush window for in-flight CDP screencast frames
+        await new Promise((r) => setTimeout(r, 150));
         await rec.client.detach().catch(() => undefined);
+      } catch {}
+    }
+    if (rec.onFrameNavigated) {
+      try {
+        (rec.page.rawPage as any).off('framenavigated', rec.onFrameNavigated);
       } catch {}
     }
     this.pageRecorders.delete(pageId);
   }
 
-  async stopPage(pageId: string, storage?: RecordingStorage): Promise<RecordingArtifact | undefined> {
-    const rec = this.pageRecorders.get(pageId);
-    if (!rec || !storage) return undefined;
+  async stopAll(storage?: RecordingStorage): Promise<StopAllResult> {
+    const artifacts: RecordingArtifact[] = [];
+    const pageIds = Array.from(this.pageRecorders.keys());
+    const allFrames: ScreencastFrame[] = [];
+    let nativeWebmArt: RecordingArtifact | undefined;
 
-    await this.detach(pageId);
+    for (const pageId of pageIds) {
+      const rec = this.pageRecorders.get(pageId);
+      if (rec) {
+        allFrames.push(...rec.frames);
+        if (rec.webmPath) {
+          const fileStat = await stat(rec.webmPath).catch(() => undefined);
+          if (fileStat && fileStat.size > 0) {
+            nativeWebmArt = {
+              id: `art_${createJobId()}`,
+              type: 'video',
+              pageId: rec.page.id,
+              path: rec.webmPath,
+              mimeType: 'video/webm',
+              sizeBytes: fileStat.size,
+              createdAt: new Date().toISOString(),
+            };
+          }
+        }
+      }
+      await this.detach(pageId);
+    }
 
-    // Option A: If native page.screencast created a WebM file
-    if (rec.webmPath) {
-      const fileStat = await stat(rec.webmPath).catch(() => undefined);
-      if (fileStat && fileStat.size > 0) {
-        return {
-          id: `art_${createJobId()}`,
-          type: 'video',
-          pageId: rec.page.id,
-          path: rec.webmPath,
-          mimeType: 'video/webm',
-          sizeBytes: fileStat.size,
-          createdAt: new Date().toISOString(),
-        };
+    if (nativeWebmArt) {
+      artifacts.push(nativeWebmArt);
+      return {
+        artifacts,
+        videoMetadata: {
+          durationMs: 0,
+          frameCount: 0,
+          segments: 1,
+          timestampsMonotonic: true,
+        },
+      };
+    }
+
+    // Sort frames strictly by monotonic timeline order: segmentId -> wallTime -> frameId
+    allFrames.sort((a, b) => {
+      if (a.segmentId !== b.segmentId) {
+        return a.segmentId - b.segmentId;
+      }
+      if (a.wallTime !== b.wallTime) {
+        return a.wallTime - b.wallTime;
+      }
+      return a.frameId - b.frameId;
+    });
+
+    let rawTimestampsMonotonic = true;
+    for (let i = 1; i < allFrames.length; i++) {
+      if (allFrames[i].wallTime <= allFrames[i - 1].wallTime) {
+        rawTimestampsMonotonic = false;
+        allFrames[i].wallTime = allFrames[i - 1].wallTime + 33;
       }
     }
 
-    // Option B: CDP frames fallback -> Video Recording Artifact
-    const htmlContent = generateInteractiveVideoPlayerHtml(rec.page.id, rec.frames);
-    const buffer = Buffer.from(htmlContent, 'utf8');
+    const frameCount = allFrames.length;
+    const segmentsCount = Math.max(1, new Set(allFrames.map((f) => f.segmentId)).size);
+    const firstFrameAt = frameCount > 0 ? new Date(allFrames[0].wallTime).toISOString() : undefined;
+    const lastFrameAt = frameCount > 0 ? new Date(allFrames[frameCount - 1].wallTime).toISOString() : undefined;
+    const durationMs = frameCount > 0 ? Math.max(0, allFrames[frameCount - 1].wallTime - allFrames[0].wallTime) : 0;
+    const finalUrl = frameCount > 0 ? allFrames[frameCount - 1].url : undefined;
 
-    return storage.saveVideo({
-      pageId: rec.page.id,
-      buffer,
-      mimeType: 'video/webm',
-      ext: 'webm',
-    });
-  }
+    const videoMetadata: VideoMetadata = {
+      durationMs,
+      frameCount,
+      segments: segmentsCount,
+      firstFrameAt,
+      lastFrameAt,
+      finalUrl,
+      timestampsMonotonic: true,
+    };
 
-  async stopAll(storage?: RecordingStorage): Promise<RecordingArtifact[]> {
-    const artifacts: RecordingArtifact[] = [];
-    const pageIds = Array.from(this.pageRecorders.keys());
-
-    for (const pageId of pageIds) {
-      const art = await this.stopPage(pageId, storage);
-      if (art) artifacts.push(art);
+    const recordingWarnings: string[] = [];
+    if (frameCount === 0) {
+      recordingWarnings.push('No video frames were captured during recording.');
+    }
+    if (!rawTimestampsMonotonic) {
+      recordingWarnings.push('Raw frame timestamps had minor overlaps across page boundaries and were normalized.');
     }
 
-    return artifacts;
+    if (storage) {
+      const htmlContent = generateInteractiveVideoPlayerHtml(allFrames, videoMetadata);
+      const buffer = Buffer.from(htmlContent, 'utf8');
+
+      const videoArt = await storage.saveVideo({
+        pageId: pageIds[0] ?? 'main',
+        buffer,
+        mimeType: 'video/webm',
+        ext: 'webm',
+      });
+      artifacts.push(videoArt);
+    }
+
+    return {
+      artifacts,
+      videoMetadata,
+      recordingWarnings: recordingWarnings.length > 0 ? recordingWarnings : undefined,
+    };
   }
 }
 
 /**
  * Generates an offline HTML5 Video Presentation Player containing embedded base64 frames.
  */
-function generateInteractiveVideoPlayerHtml(pageId: string, frames: ScreencastFrame[]): string {
-  const jsonFrames = JSON.stringify(frames.map((f) => f.data));
+function generateInteractiveVideoPlayerHtml(frames: ScreencastFrame[], metadata: VideoMetadata): string {
+  const jsonFrames = JSON.stringify(frames.map((f) => ({ data: f.data, url: f.url, t: f.wallTime })));
+  const jsonMeta = JSON.stringify(metadata);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Screenpool Video Recording - ${pageId}</title>
+  <title>Screenpool Video Recording</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
     .player-container { background: #1e293b; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; width: 100%; max-width: 1000px; display: flex; flex-direction: column; }
+    .url-bar { background: #0f172a; padding: 10px 16px; font-family: monospace; font-size: 0.85rem; color: #38bdf8; border-bottom: 1px solid #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .canvas-wrapper { position: relative; background: #000; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 400px; }
     canvas { width: 100%; height: auto; display: block; }
     .controls { display: flex; align-items: center; gap: 15px; padding: 15px 20px; background: #0f172a; border-top: 1px solid #334155; }
@@ -163,6 +302,7 @@ function generateInteractiveVideoPlayerHtml(pageId: string, frames: ScreencastFr
 </head>
 <body>
   <div class="player-container">
+    <div id="urlBar" class="url-bar">Loading...</div>
     <div class="canvas-wrapper">
       <canvas id="screenCanvas"></canvas>
     </div>
@@ -180,28 +320,31 @@ function generateInteractiveVideoPlayerHtml(pageId: string, frames: ScreencastFr
 
   <script>
     const frames = ${jsonFrames};
+    const metadata = ${jsonMeta};
     const canvas = document.getElementById('screenCanvas');
     const ctx = canvas.getContext('2d');
     const playBtn = document.getElementById('playBtn');
     const scrubber = document.getElementById('scrubber');
     const timeDisplay = document.getElementById('timeDisplay');
     const speedSelect = document.getElementById('speedSelect');
+    const urlBar = document.getElementById('urlBar');
 
     let currentIndex = 0;
     let isPlaying = true;
     let intervalId = null;
     let speed = 1;
 
-    scrubber.max = frames.length - 1;
+    scrubber.max = Math.max(0, frames.length - 1);
 
-    const images = frames.map((data) => {
+    const images = frames.map((f) => {
       const img = new Image();
-      img.src = 'data:image/jpeg;base64,' + data;
+      img.src = 'data:image/jpeg;base64,' + f.data;
       return img;
     });
 
     function renderFrame(index) {
       if (index < 0 || index >= frames.length) return;
+      const frame = frames[index];
       const img = images[index];
       if (img.complete && img.naturalWidth !== 0) {
         if (canvas.width !== img.naturalWidth) {
@@ -218,6 +361,7 @@ function generateInteractiveVideoPlayerHtml(pageId: string, frames: ScreencastFr
       }
       scrubber.value = index;
       timeDisplay.textContent = (index + 1) + ' / ' + frames.length;
+      urlBar.textContent = frame.url || metadata.finalUrl || '';
     }
 
     function play() {
@@ -225,6 +369,7 @@ function generateInteractiveVideoPlayerHtml(pageId: string, frames: ScreencastFr
       isPlaying = true;
       playBtn.textContent = 'Pause';
       intervalId = setInterval(() => {
+        if (frames.length === 0) return;
         currentIndex = (currentIndex + 1) % frames.length;
         renderFrame(currentIndex);
       }, 100 / speed);
@@ -251,9 +396,10 @@ function generateInteractiveVideoPlayerHtml(pageId: string, frames: ScreencastFr
       if (isPlaying) play();
     });
 
-    // Start playback
-    renderFrame(0);
-    play();
+    if (frames.length > 0) {
+      renderFrame(0);
+      play();
+    }
   </script>
 </body>
 </html>`;
