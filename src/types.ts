@@ -118,6 +118,8 @@ export interface ScreenshotOptions {
   injectCSS?: string;
   injectJS?: string;
   blockResources?: BlockResourceType[];
+  includeElementHtml?: boolean;
+  includeCode?: boolean;
   diagnostics?: DiagnosticsInput;
 }
 
@@ -188,6 +190,7 @@ export interface RenderResult {
   durationMs: number;
   jobId: string;
   type: JobType;
+  elementHtml?: string;
   diagnostics?: DiagnosticsResult;
 }
 

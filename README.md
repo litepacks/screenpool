@@ -39,6 +39,14 @@ const result = await pool.screenshot({
 // Express / Fastify / Hono
 res.type(result.contentType).send(result.buffer);
 
+// Element Screenshot & HTML Code Extraction
+const elementResult = await pool.screenshot({
+  url: "https://example.com",
+  selector: "h1",
+  includeElementHtml: true,
+});
+console.log(elementResult.elementHtml); // "<h1>Example Domain</h1>"
+
 await pool.stop();
 ```
 
@@ -370,7 +378,7 @@ screenpool-mcp
 
 | Tool Name | Description |
 |-----------|-------------|
-| `screenpool_screenshot` | Capture web page screenshot (png, jpeg, webp, fullPage, viewport, selector, diagnostics). |
+| `screenpool_screenshot` | Capture web page or element screenshot (png, jpeg, webp, fullPage, viewport, selector, includeElementHtml, diagnostics). |
 | `screenpool_pdf` | Render web page as PDF (A4, Letter, landscape, margins, background, diagnostics). |
 | `screenpool_html` | Extract fully rendered HTML after JavaScript execution (with truncation and diagnostics). |
 | `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL, diagnostics). |
@@ -398,6 +406,29 @@ screenpool-mcp
     "preset": "standard",
     "output": "summary"
   }
+```
+
+#### Element Screenshot & HTML Extraction MCP Example
+
+```json
+{
+  "url": "https://example.com",
+  "selector": ".hero-banner",
+  "includeElementHtml": true
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "mimeType": "image/png",
+  "path": "/path/to/.screenpool/artifacts/screenshot_3f9a.png",
+  "width": 1280,
+  "height": 720,
+  "size": 18450,
+  "elementHtml": "<div class=\"hero-banner\"><h1>Welcome</h1></div>",
+  "durationMs": 284
 }
 ```
 

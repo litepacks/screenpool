@@ -51,6 +51,8 @@ export const ScreenshotInputSchema = z.object({
   waitUntil: WaitUntilSchema,
   omitBackground: z.boolean().optional(),
   selector: z.string().optional(),
+  includeElementHtml: z.boolean().optional(),
+  includeCode: z.boolean().optional(),
   delay: z.number().int().min(0).max(60_000).optional(),
   diagnostics: DiagnosticsInputSchema,
 });

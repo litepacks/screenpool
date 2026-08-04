@@ -26,6 +26,8 @@ export async function handleScreenshot(
     waitUntil: input.waitUntil as any,
     omitBackground: input.omitBackground,
     selector: input.selector,
+    includeElementHtml: input.includeElementHtml,
+    includeCode: input.includeCode,
     waitForTimeout: input.delay,
     diagnostics: input.diagnostics,
   });
@@ -40,6 +42,7 @@ export async function handleScreenshot(
     width: input.viewport?.width || 1280,
     height: input.viewport?.height || 800,
     size: artifact.size,
+    elementHtml: res.elementHtml,
     durationMs,
     diagnostics: res.diagnostics,
   };

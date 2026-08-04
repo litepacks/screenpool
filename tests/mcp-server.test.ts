@@ -115,6 +115,25 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     try { unlinkSync(res.path); } catch {}
   });
 
+  it('captures element screenshot and extracts element code via MCP handler', async () => {
+    const config = mcpServer.currentConfig;
+    const res = await handleScreenshot(
+      pool,
+      {
+        url: `${baseUrl}/test-page`,
+        selector: 'h1',
+        includeElementHtml: true,
+      },
+      config,
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.elementHtml).toContain('Screenpool MCP Integration');
+    expect(existsSync(res.path)).toBe(true);
+
+    try { unlinkSync(res.path); } catch {}
+  });
+
   it('renders PDF via MCP handler', async () => {
     const config = mcpServer.currentConfig;
     const res = await handlePdf(

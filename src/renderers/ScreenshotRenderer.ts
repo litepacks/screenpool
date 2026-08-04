@@ -20,13 +20,20 @@ export async function renderScreenshot(
   await applyDarkMode(page, options.darkMode);
 
   const format = options.format ?? 'png';
+  const shouldExtractHtml = options.includeElementHtml ?? options.includeCode ?? false;
   let buffer: Buffer;
+  let elementHtml: string | undefined;
 
   if (options.selector) {
     const element = await page.$(options.selector);
     if (!element) {
       throw new Error(`Selector not found: ${options.selector}`);
     }
+
+    if (shouldExtractHtml) {
+      elementHtml = await page.evaluate((el) => el.outerHTML, element);
+    }
+
     buffer = Buffer.from(
       (await element.screenshot({
         type: format,
@@ -35,6 +42,10 @@ export async function renderScreenshot(
       })) as Uint8Array,
     );
   } else {
+    if (shouldExtractHtml) {
+      elementHtml = await page.content();
+    }
+
     buffer = Buffer.from(
       (await page.screenshot({
         type: format,
@@ -52,5 +63,6 @@ export async function renderScreenshot(
     durationMs: Date.now() - start,
     jobId,
     type: 'screenshot',
+    elementHtml,
   };
 }

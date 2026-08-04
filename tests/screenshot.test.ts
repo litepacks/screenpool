@@ -30,4 +30,28 @@ describe.skipIf(!hasChromium())('screenshot', () => {
       await pool.stop();
     }
   });
+
+  it('extracts element code when selector and includeElementHtml are provided', async () => {
+    const pool = new ScreenPool({
+      executablePath: chromiumPath,
+      poolSize: 1,
+    });
+
+    await pool.start();
+
+    try {
+      const result = await pool.screenshot({
+        html: '<div id="target" style="padding:20px;background:red;"><h1>Hello Element</h1></div>',
+        selector: '#target',
+        includeElementHtml: true,
+      });
+
+      expect(result.buffer).toBeInstanceOf(Buffer);
+      expect(result.buffer.length).toBeGreaterThan(0);
+      expect(result.elementHtml).toContain('id="target"');
+      expect(result.elementHtml).toContain('Hello Element');
+    } finally {
+      await pool.stop();
+    }
+  });
 });
