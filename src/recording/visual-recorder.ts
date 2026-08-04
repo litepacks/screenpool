@@ -264,6 +264,14 @@ export class PuppeteerVisualRecorder {
       const htmlContent = generateInteractiveVideoPlayerHtml(allFrames, videoMetadata);
       const buffer = Buffer.from(htmlContent, 'utf8');
 
+      // 1. Save HTML player artifact for easy double-click browser playback
+      await storage.saveHtml({
+        pageId: pageIds[0] ?? 'main',
+        label: 'video-player',
+        content: htmlContent,
+      });
+
+      // 2. Save video artifact for compatibility
       const videoArt = await storage.saveVideo({
         pageId: pageIds[0] ?? 'main',
         buffer,
