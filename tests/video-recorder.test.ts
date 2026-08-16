@@ -75,11 +75,10 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     baseUrl = `http://127.0.0.1:${addr.port}`;
 
     pool = new ScreenPool({
-      launchOptions: {
-        executablePath: chromiumPath,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      },
+      executablePath: chromiumPath,
       poolSize: 2,
+      allowLocalhost: true,
+      allowPrivateNetworks: true,
     });
     await pool.start();
 

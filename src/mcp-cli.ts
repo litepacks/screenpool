@@ -54,9 +54,24 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       type: 'boolean',
       describe: 'Allow navigation to localhost and private network addresses (SSRF bypass)',
     })
+    .option('shared', {
+      type: 'boolean',
+      default: true,
+      describe: 'Share singleton browser daemon across MCP instances to minimize CPU/RAM (default: true)',
+    })
+    .option('isolated', {
+      type: 'boolean',
+      describe: 'Force isolated local browser process instead of shared daemon',
+    })
+    .option('idle-timeout', {
+      type: 'number',
+      describe: 'Idle timeout in ms before auto-closing browser (default: 600000)',
+    })
     .help()
     .alias('help', 'h')
     .parse();
+
+  const isShared = argv.isolated ? false : argv.shared;
 
   const server = new ScreenpoolMcpServer({
     configFilePath: argv.config,
@@ -69,6 +84,8 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       headless: argv.headless,
       artifactsDir: argv['artifacts-dir'],
       logLevel: argv['log-level'] as LogLevel | undefined,
+      shared: isShared,
+      idleTimeout: argv['idle-timeout'],
       security: {
         allowPrivateNetwork: Boolean(argv['allow-private-network']),
       },

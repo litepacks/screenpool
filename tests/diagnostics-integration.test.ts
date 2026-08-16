@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { ScreenPool } from '../src/ScreenPool.js';
+import { getChromiumPath, hasChromium } from './helpers/chromium.js';
 
-describe('Diagnostics Integration Tests', () => {
+const chromiumPath = getChromiumPath();
+
+describe.skipIf(!hasChromium())('Diagnostics Integration Tests', () => {
   let server: Server;
   let baseUrl: string;
   let pool: ScreenPool;
@@ -112,8 +115,10 @@ describe('Diagnostics Integration Tests', () => {
     baseUrl = `http://127.0.0.1:${addr.port}`;
 
     pool = new ScreenPool({
+      executablePath: chromiumPath,
       poolSize: 2,
       allowLocalhost: true,
+      allowPrivateNetworks: true,
     });
     await pool.start();
   });

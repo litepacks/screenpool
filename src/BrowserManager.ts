@@ -4,31 +4,51 @@ import { resolveBrowserExecutable } from './utils/resolveBrowserExecutable.js';
 import { buildLaunchArgs } from './utils/buildLaunchArgs.js';
 import { getBrowserMemoryMb } from './utils/processMemory.js';
 import { BrowserCrashedError } from './errors.js';
+import { acquireSharedBrowser, touchSharedDaemon } from './utils/sharedDaemon.js';
 
 export type BrowserDisconnectHandler = () => void;
 
-/** Manages a single shared Chromium browser instance. */
+/** Manages a Chromium browser instance (shared daemon or local dedicated process). */
 export class BrowserManager {
   private browser: Browser | null = null;
   private executablePath: string | null = null;
   private disconnectHandler: BrowserDisconnectHandler | null = null;
+  private isRemote = false;
+  private isShared = false;
+  private exitHookRegistered = false;
+  private exitHook?: () => void;
 
   constructor(private readonly config: ResolvedScreenPoolConfig) {}
 
-  /** Launch the browser process. */
+  /** Launch the browser process or connect to existing shared daemon. */
   async launch(): Promise<Browser> {
     if (this.browser?.connected) {
+      if (this.isShared) {
+        touchSharedDaemon();
+      }
       return this.browser;
     }
 
     if (this.config.browserInstance) {
       this.browser = this.config.browserInstance;
+      this.isRemote = true;
+      this.isShared = false;
     } else if (this.config.browserWSEndpoint || this.config.browserURL) {
       this.browser = await puppeteer.connect({
         browserWSEndpoint: this.config.browserWSEndpoint,
         browserURL: this.config.browserURL,
         defaultViewport: null,
       });
+      this.isRemote = true;
+      this.isShared = false;
+    } else if (this.config.shared) {
+      const { wsEndpoint } = await acquireSharedBrowser(this.config);
+      this.browser = await puppeteer.connect({
+        browserWSEndpoint: wsEndpoint,
+        defaultViewport: null,
+      });
+      this.isRemote = true;
+      this.isShared = true;
     } else {
       this.executablePath = await resolveBrowserExecutable(this.config);
       const args = buildLaunchArgs(this.config);
@@ -39,6 +59,10 @@ export class BrowserManager {
         args,
       });
 
+      this.isRemote = false;
+      this.isShared = false;
+
+      this.registerExitHook();
       await this.closeDefaultContextPages(this.browser);
     }
 
@@ -48,6 +72,7 @@ export class BrowserManager {
 
     this.browser.on('disconnected', () => {
       this.browser = null;
+      this.removeExitHook();
       this.disconnectHandler?.();
     });
 
@@ -63,6 +88,9 @@ export class BrowserManager {
   getBrowser(): Browser {
     if (!this.browser?.connected) {
       throw new BrowserCrashedError('Browser is not connected.');
+    }
+    if (this.isShared) {
+      touchSharedDaemon();
     }
     return this.browser;
   }
@@ -85,21 +113,40 @@ export class BrowserManager {
     return this.launch();
   }
 
-  /** Close browser gracefully. */
+  /** Close or disconnect browser gracefully with force-kill fallback. */
   async close(): Promise<void> {
     if (this.browser) {
+      const browserToClose = this.browser;
+      const pid = browserToClose.process()?.pid;
+      this.browser = null;
+      this.removeExitHook();
+
       try {
         if (this.config.browserInstance) {
-          // Do not close or disconnect a user-provided browser instance
-        } else if (this.config.browserWSEndpoint || this.config.browserURL) {
-          this.browser.disconnect();
+          // Do not close user-provided browser instance
+        } else if (this.isRemote || this.isShared || this.config.browserWSEndpoint || this.config.browserURL) {
+          browserToClose.disconnect();
         } else {
-          await this.browser.close();
+          // Dedicated local browser: attempt graceful close with a strict timeout
+          const closePromise = browserToClose.close();
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Browser.close timed out')), 2000),
+          );
+
+          await Promise.race([closePromise, timeoutPromise]).catch(() => {
+            // If CDP close hung, force kill the OS process
+            if (pid) {
+              try {
+                process.kill(pid, 'SIGKILL');
+              } catch {
+                // process already exited
+              }
+            }
+          });
         }
       } catch {
-        // ignore close errors on crashed browser
+        // ignore close errors
       }
-      this.browser = null;
     }
   }
 
@@ -109,9 +156,40 @@ export class BrowserManager {
 
   /** Chromium opens a blank tab in the default context — close it to save memory. */
   private async closeDefaultContextPages(browser: Browser): Promise<void> {
-    const pages = await browser.defaultBrowserContext().pages();
-    await Promise.all(
-      pages.map((page) => page.close({ runBeforeUnload: false }).catch(() => undefined)),
-    );
+    try {
+      const pages = await browser.defaultBrowserContext().pages();
+      await Promise.all(
+        pages.map((page) => page.close({ runBeforeUnload: false }).catch(() => undefined)),
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  /** Register OS process exit hooks so that Chrome process never outlives Node. */
+  private registerExitHook(): void {
+    if (this.exitHookRegistered) return;
+    this.exitHookRegistered = true;
+
+    this.exitHook = () => {
+      if (this.browser && !this.isRemote) {
+        const pid = this.browser.process()?.pid;
+        if (pid) {
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch {}
+        }
+      }
+    };
+
+    process.once('exit', this.exitHook);
+  }
+
+  private removeExitHook(): void {
+    if (this.exitHookRegistered && this.exitHook) {
+      process.removeListener('exit', this.exitHook);
+      this.exitHookRegistered = false;
+      this.exitHook = undefined;
+    }
   }
 }

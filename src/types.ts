@@ -73,6 +73,8 @@ export interface ScreenPoolConfig {
   allowLocalhost?: boolean;
   allowPrivateNetworks?: boolean;
   allowFileProtocol?: boolean;
+  /** Share singleton browser process across instances (default: false for programmatic ScreenPool, true for MCP) */
+  shared?: boolean;
   defaultViewport?: ViewportConfig;
   memory?: MemoryConfig;
   storage?: StorageConfig;
@@ -239,6 +241,7 @@ export interface ResolvedScreenPoolConfig {
   allowLocalhost: boolean;
   allowPrivateNetworks: boolean;
   allowFileProtocol: boolean;
+  shared: boolean;
   defaultViewport: ViewportConfig;
   diagnostics?: DiagnosticsOptions;
   memory: Required<Pick<MemoryConfig, 'checkIntervalMs' | 'pressureThreshold' | 'restartOnLimit'>> &
@@ -333,6 +336,7 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     allowLocalhost: config.allowLocalhost ?? false,
     allowPrivateNetworks: config.allowPrivateNetworks ?? false,
     allowFileProtocol: config.allowFileProtocol ?? false,
+    shared: config.shared ?? (process.env.SCREENPOOL_SHARED === 'true'),
     defaultViewport: config.defaultViewport ?? {
       width: 1280,
       height: 720,

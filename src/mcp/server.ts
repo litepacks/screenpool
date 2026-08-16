@@ -41,6 +41,8 @@ export class ScreenpoolMcpServer {
         outputDir: this.config.artifactsDir,
         allowLocalhost: this.config.security.allowPrivateNetwork,
         allowPrivateNetworks: this.config.security.allowPrivateNetwork,
+        shared: this.config.shared !== false,
+        idleTimeout: this.config.idleTimeout,
       });
       this.isOwnPool = true;
     }
@@ -55,11 +57,11 @@ export class ScreenpoolMcpServer {
     if (!this.isOwnPool) return;
     if (!this.poolStartPromise) {
       const start = Date.now();
-      this.logger.info(`Starting ScreenPool engine (poolSize=${this.config.poolSize}, browser=${this.config.browser})...`);
+      this.logger.info(`Initializing ScreenPool engine (poolSize=${this.config.poolSize}, shared=${this.config.shared !== false})...`);
       this.poolStartPromise = this.pool
         .start()
         .then(() => {
-          this.logger.info(`ScreenPool engine pre-warmed successfully in ${Date.now() - start}ms.`);
+          this.logger.info(`ScreenPool engine ready in ${Date.now() - start}ms.`);
         })
         .catch((err) => {
           this.poolStartPromise = null;
@@ -87,12 +89,7 @@ export class ScreenpoolMcpServer {
 
     await this.mcpServer.connect(this.transport);
     this.logger.info('Screenpool MCP Server is ready and listening on stdio.');
-
-    if (this.isOwnPool) {
-      this.ensurePoolStarted().catch((err) => {
-        this.logger.error(`Failed to pre-warm ScreenPool engine: ${err?.message || err}`);
-      });
-    }
+    // Pool is started lazily on the first tool invocation to conserve CPU/RAM.
   }
 
   /** Graceful shutdown. Safely closes server and browser pool. */
@@ -135,7 +132,9 @@ export class ScreenpoolMcpServer {
 
     const sigintListener = () => { void handleShutdown('SIGINT'); };
     const sigtermListener = () => { void handleShutdown('SIGTERM'); };
+    const sighupListener = () => { void handleShutdown('SIGHUP'); };
     const stdinEndListener = () => { void handleShutdown('STDIN_END'); };
+    const stdinCloseListener = () => { void handleShutdown('STDIN_CLOSE'); };
     const uncaughtListener = (err: any) => {
       this.logger.error(`Uncaught exception: ${err?.stack || err?.message || err}`);
     };
@@ -145,14 +144,18 @@ export class ScreenpoolMcpServer {
 
     process.on('SIGINT', sigintListener);
     process.on('SIGTERM', sigtermListener);
+    process.on('SIGHUP', sighupListener);
     process.stdin.on('end', stdinEndListener);
+    process.stdin.on('close', stdinCloseListener);
     process.on('uncaughtException', uncaughtListener);
     process.on('unhandledRejection', unhandledRejectionListener);
 
     this.removeSignalListeners = () => {
       process.removeListener('SIGINT', sigintListener);
       process.removeListener('SIGTERM', sigtermListener);
+      process.removeListener('SIGHUP', sighupListener);
       process.stdin.removeListener('end', stdinEndListener);
+      process.stdin.removeListener('close', stdinCloseListener);
       process.removeListener('uncaughtException', uncaughtListener);
       process.removeListener('unhandledRejection', unhandledRejectionListener);
     };

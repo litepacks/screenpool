@@ -1,5 +1,47 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+function findInstalledChromeForTesting(): string | null {
+  const cacheDirs = [
+    join(homedir(), '.screenpool', 'browser', 'chrome'),
+    join(homedir(), '.cache', 'puppeteer', 'chrome'),
+  ];
+
+  for (const baseDir of cacheDirs) {
+    if (!existsSync(baseDir)) continue;
+    try {
+      const versions = readdirSync(baseDir).sort().reverse();
+      for (const ver of versions) {
+        const candidate1 = join(
+          baseDir,
+          ver,
+          'chrome-mac-arm64',
+          'Google Chrome for Testing.app',
+          'Contents',
+          'MacOS',
+          'Google Chrome for Testing',
+        );
+        if (existsSync(candidate1)) return candidate1;
+
+        const candidate2 = join(
+          baseDir,
+          ver,
+          'chrome-mac-x64',
+          'Google Chrome for Testing.app',
+          'Contents',
+          'MacOS',
+          'Google Chrome for Testing',
+        );
+        if (existsSync(candidate2)) return candidate2;
+
+        const candidate3 = join(baseDir, ver, 'chrome-linux64', 'chrome');
+        if (existsSync(candidate3)) return candidate3;
+      }
+    } catch {}
+  }
+  return null;
+}
 
 const SYSTEM_PATHS = [
   process.env.CHROME_PATH,
@@ -9,12 +51,14 @@ const SYSTEM_PATHS = [
   '/usr/bin/chromium-browser',
   '/usr/bin/google-chrome',
   '/usr/bin/google-chrome-stable',
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
 ].filter(Boolean) as string[];
 
 /** Resolve Chromium executable for integration tests. */
 export function getChromiumPath(): string {
+  const cft = findInstalledChromeForTesting();
+  if (cft) return cft;
+
   for (const path of SYSTEM_PATHS) {
     if (existsSync(path)) {
       return path;

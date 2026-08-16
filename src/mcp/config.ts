@@ -29,6 +29,10 @@ export interface ScreenpoolMcpConfig {
   headless?: boolean;
   artifactsDir?: string;
   logLevel?: LogLevel;
+  /** Share singleton browser process across MCP instances (default: true) */
+  shared?: boolean;
+  /** Idle timeout in milliseconds before auto-closing browser (default: 600,000 = 10 mins) */
+  idleTimeout?: number;
   security?: SecurityConfig;
   artifacts?: ArtifactsConfig;
   mcp?: McpConfigSection;
@@ -48,6 +52,8 @@ export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFileP
   headless: true,
   artifactsDir: '.screenpool/artifacts',
   logLevel: 'info',
+  shared: true,
+  idleTimeout: 10 * 60 * 1000,
   security: {
     allowPrivateNetwork: false,
     allowedDomains: [],
@@ -153,6 +159,16 @@ export function resolveMcpConfig(
 
   const enabledTools = fileConfig.mcp?.enabledTools ?? DEFAULT_MCP_CONFIG.mcp.enabledTools;
 
+  const envShared = process.env.SCREENPOOL_SHARED !== undefined
+    ? process.env.SCREENPOOL_SHARED === 'true'
+    : undefined;
+  const envIdleTimeout = process.env.SCREENPOOL_IDLE_TIMEOUT
+    ? parseInt(process.env.SCREENPOOL_IDLE_TIMEOUT, 10)
+    : undefined;
+
+  const resolvedShared = cliOptions.shared ?? envShared ?? fileConfig.shared ?? DEFAULT_MCP_CONFIG.shared;
+  const resolvedIdleTimeout = cliOptions.idleTimeout ?? envIdleTimeout ?? fileConfig.idleTimeout ?? DEFAULT_MCP_CONFIG.idleTimeout;
+
   return {
     browser: resolvedBrowser as any,
     executablePath: resolvedExecutablePath,
@@ -162,6 +178,8 @@ export function resolveMcpConfig(
     headless: resolvedHeadless,
     artifactsDir: resolvedArtifactsDir,
     logLevel: resolvedLogLevel,
+    shared: resolvedShared,
+    idleTimeout: resolvedIdleTimeout,
     security: {
       allowPrivateNetwork,
       allowedDomains,

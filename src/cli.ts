@@ -646,6 +646,26 @@ async function main(): Promise<void> {
       }
     )
     .command(
+      'clean',
+      'Clean up orphaned Chromium processes and temporary profile directories',
+      (y) => y
+        .option('force-all', { alias: 'f', type: 'boolean', describe: 'Force terminate all ScreenPool Chromium processes' }),
+      async (argv) => {
+        try {
+          const { reapOrphanProcesses } = await import('./utils/orphanReaper.js');
+          const { stopSharedDaemon } = await import('./utils/sharedDaemon.js');
+          if (argv['force-all']) {
+            await stopSharedDaemon();
+          }
+          const result = reapOrphanProcesses({ forceAll: Boolean(argv['force-all']) });
+          console.log(`✓ Cleaned ${result.killedCount} orphaned Chromium process(es).`);
+          console.log(`✓ Removed ${result.cleanedProfilesCount} temporary profile folder(s).`);
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .command(
       'mcp',
       'Start the Screenpool Model Context Protocol (MCP) server',
       (y) => y
@@ -658,7 +678,10 @@ async function main(): Promise<void> {
         .option('artifacts-dir', { type: 'string', describe: 'Directory for saving output screenshots/PDFs' })
         .option('log-level', { type: 'string', choices: ['silent', 'error', 'warn', 'info', 'debug'], describe: 'Stderr logging level' })
         .option('config', { alias: 'c', type: 'string', describe: 'Path to configuration file' })
-        .option('allow-private-network', { type: 'boolean', describe: 'Allow navigation to private network addresses' }),
+        .option('allow-private-network', { type: 'boolean', describe: 'Allow navigation to private network addresses' })
+        .option('shared', { type: 'boolean', default: true, describe: 'Share singleton browser daemon across MCP instances' })
+        .option('isolated', { type: 'boolean', describe: 'Force isolated local browser process' })
+        .option('idle-timeout', { type: 'number', describe: 'Idle timeout in ms before auto-closing browser' }),
       async () => {
         try {
           const { runMcpCli } = await import('./mcp-cli.js');
@@ -668,7 +691,7 @@ async function main(): Promise<void> {
         }
       }
     )
-    .demandCommand(1, 'You must specify a command (setup, screenshot, pdf, extract, server, daemon, ui, or mcp)');
+    .demandCommand(1, 'You must specify a command (setup, clean, screenshot, pdf, extract, server, daemon, ui, or mcp)');
 
   await parser.parse();
 }

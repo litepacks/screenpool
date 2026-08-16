@@ -2,8 +2,11 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } fr
 import { createServer, type Server } from 'node:http';
 import { existsSync } from 'node:fs';
 import { ScreenPool } from '../../src/ScreenPool.js';
+import { getChromiumPath, hasChromium } from '../helpers/chromium.js';
 
-describe('Browser Actions & Recording Integration Tests', () => {
+const chromiumPath = getChromiumPath();
+
+describe.skipIf(!hasChromium())('Browser Actions & Recording Integration Tests', () => {
   let server: Server;
   let serverUrl: string;
   let pool: ScreenPool;
@@ -75,7 +78,12 @@ describe('Browser Actions & Recording Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    pool = new ScreenPool({ poolSize: 2 });
+    pool = new ScreenPool({
+      executablePath: chromiumPath,
+      poolSize: 2,
+      allowLocalhost: true,
+      allowPrivateNetworks: true,
+    });
     await pool.start();
   });
 
