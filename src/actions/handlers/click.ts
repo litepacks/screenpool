@@ -22,13 +22,13 @@ export async function handleClick(params: {
     if (target?.point) {
       await page.rawPage.mouse.click(target.point.x, target.point.y, {
         button: action.button ?? 'left',
-        clickCount: action.count ?? 1,
+        count: action.count ?? 1,
       });
     } else if (target?.elementHandle) {
       if (action.count === 2) {
         await target.elementHandle.click({
           button: action.button ?? 'left',
-          clickCount: 2,
+          count: 2,
         });
       } else {
         await target.elementHandle.click({

@@ -33,7 +33,7 @@ export async function handleFill(params: {
   }
 
   if (action.clear !== false) {
-    await target.elementHandle.click({ clickCount: 3 });
+    await target.elementHandle.click({ count: 3 });
     await page.rawPage.keyboard.press('Backspace');
   }
 
