@@ -28,6 +28,7 @@ export class BrowserSessionImpl {
   readonly eventBus: SessionEventBus;
   readonly pagePolicy: PagePolicy;
   readonly actionPolicy: ActionPolicy;
+  readonly isPersistent: boolean;
   readonly registry!: PageRegistry;
   readonly observer!: Observer;
   readonly observationStore: ObservationStore;
@@ -44,6 +45,7 @@ export class BrowserSessionImpl {
   ) {
     this.id = id;
     this.contextId = `ctx_${id}`;
+    this.isPersistent = Boolean(options.persistent);
     const now = new Date();
     this.createdAt = now.toISOString();
     this.lastUsedAt = this.createdAt;
@@ -60,7 +62,11 @@ export class BrowserSessionImpl {
   }
 
   async init(): Promise<void> {
-    this.context = await this.browser.createBrowserContext();
+    if (this.isPersistent) {
+      this.context = this.browser.defaultBrowserContext();
+    } else {
+      this.context = await this.browser.createBrowserContext();
+    }
 
     (this as any).registry = new PageRegistry(
       this.context,
@@ -121,6 +127,7 @@ export class BrowserSessionImpl {
       state: this.state,
       mainPageId: this.mainPageId,
       activePageId: this.activePageId,
+      persistent: this.isPersistent,
     };
   }
 
@@ -256,7 +263,15 @@ export class BrowserSessionImpl {
 
     if (this.context) {
       try {
-        await this.context.close();
+        if (!this.isPersistent) {
+          await this.context.close();
+        } else {
+          // Default context: close only the pages managed by this session registry
+          const managedPages = this.registry.list().filter((p) => p.state !== 'closed');
+          await Promise.all(
+            managedPages.map((p) => p.rawPage.close({ runBeforeUnload: false }).catch(() => undefined)),
+          );
+        }
       } catch {
         // ignore close error
       }

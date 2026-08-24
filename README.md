@@ -308,6 +308,7 @@ screenpool-mcp
 --pool-size <number>               Number of worker pages in pool (default: 3)
 --timeout <milliseconds>          Render and navigation timeout in ms (default: 30000)
 --headless / --no-headless         Run browser in headless mode (default: true)
+--user-data-dir <path>             Path to persistent user data directory (cookies, login, localStorage)
 --max-pages <number>               Maximum queue size for render jobs
 --artifacts-dir <path>             Directory to save screenshot/PDF outputs (default: .screenpool/artifacts)
 --log-level <level>                Stderr logging level (silent|error|warn|info|debug)
@@ -329,6 +330,26 @@ screenpool-mcp
         "screenpool",
         "mcp"
       ]
+    }
+  }
+}
+```
+
+#### Persistent Profile & Authenticated Login Config
+
+```json
+{
+  "mcpServers": {
+    "screenpool": {
+      "command": "screenpool",
+      "args": [
+        "mcp",
+        "--user-data-dir",
+        "/Users/user/.screenpool-profile"
+      ],
+      "env": {
+        "SCREENPOOL_USER_DATA_DIR": "/Users/user/.screenpool-profile"
+      }
     }
   }
 }
@@ -374,26 +395,34 @@ screenpool-mcp
 }
 ```
 
+### Persistent Profiles & Authenticated Sessions (Login Support)
+
+ScreenPool supports disk-backed persistent Chromium profiles, enabling AI coding assistants to interact with authenticated applications (dashboards, admin panels, SaaS tools) without needing manual credentials or captcha bypasses on every session:
+
+1. **Persistent Context (`userDataDir`):** Chromium saves cookies, localStorage, session tokens, and IndexedDB in the specified directory.
+2. **Session Creation with `{ persistent: true }`:** When creating a session via `screenpool_session_create`, setting `"persistent": true` binds the session directly to the disk-backed profile context.
+3. **Safe Page Cleanup:** When closing a persistent session, ScreenPool cleanly closes only that session's tabs without destroying the underlying profile data or erasing saved logins.
+
 ### MCP Tools List
 
-| Tool Name | Description |
-|-----------|-------------|
-| `screenpool_screenshot` | Capture web page or element screenshot (png, jpeg, webp, fullPage, viewport, selector, includeElementHtml, diagnostics). |
-| `screenpool_pdf` | Render web page as PDF (A4, Letter, landscape, margins, background, diagnostics). |
-| `screenpool_html` | Extract fully rendered HTML after JavaScript execution (with truncation and diagnostics). |
-| `screenpool_metadata` | Extract page metadata (title, meta description, canonical URL, diagnostics). |
-| `screenpool_session_create` | Create an isolated browser session with multi-page lifecycle tracking. |
-| `screenpool_session_pages` | List managed pages in session and active/main page status. |
-| `screenpool_session_close` | Close an active browser session and release its isolated context. |
-| `screenpool_observe` | Capture page observation state including interactive element IDs, viewport, scroll, and compact HTML. |
-| `screenpool_act` | Execute strict, verifiable browser actions (click, fill, press, select, scroll, wait, page actions) on a session. |
-| `screenpool_run` | Stateless browser action run in a temporary session. |
-| `screenpool_record_start` | Start session recording (events jsonl, action step screenshots, and video). |
-| `screenpool_record_stop` | Stop session recording and return recording manifest. |
-| `screenpool_record_get` | Get active session recording status. |
-| `screenpool_health` | View worker pool health status, active jobs, uptime, and queue length. |
-| `screenpool_capabilities` | Inspect supported features, tool list, formats, and diagnostics presets/outputs. |
-| `screenpool_help` | Structured documentation, parameter guides, diagnostics presets, and example payloads. |
+| Tool Name | Description | Key Parameters |
+|-----------|-------------|----------------|
+| `screenpool_screenshot` | Capture web page or element screenshot | `url`, `fullPage`, `format`, `viewport`, `selector`, `diagnostics` |
+| `screenpool_pdf` | Render web page as PDF document | `url`, `format`, `landscape`, `margin`, `scale`, `diagnostics` |
+| `screenpool_html` | Extract fully rendered HTML after JavaScript execution | `url`, `waitUntil`, `maxChars`, `diagnostics` |
+| `screenpool_metadata` | Extract structured page metadata | `url`, `diagnostics` |
+| `screenpool_session_create` | Create an isolated or persistent browser session | `ttlMs`, `persistent` (`boolean`), `policy`, `pages` |
+| `screenpool_session_pages` | List managed pages in session and active/main page status | `sessionId` |
+| `screenpool_session_close` | Close an active browser session and release context/pages | `sessionId` |
+| `screenpool_observe` | Capture page observation state, interactive element IDs & compact DOM | `sessionId`, `screenshot`, `html`, `elements` |
+| `screenpool_act` | Execute verifiable browser actions on a session | `sessionId`, `actions` (`click`, `fill`, `press`, `select`, `scroll`, `wait`, `page.*`) |
+| `screenpool_run` | Stateless browser action run in a temporary session | `url`, `actions`, `recording` (`preset`, `video`, `screenshots`) |
+| `screenpool_record_start` | Start action step recording and video capture | `sessionId`, `url`, `options` (`preset`, `video`, `screenshots`) |
+| `screenpool_record_stop` | Stop session recording and return recording manifest | `sessionId`, `recordingId`, `closeSession` |
+| `screenpool_record_get` | Get active session recording status | `sessionId` |
+| `screenpool_health` | View worker pool health status, active jobs, uptime & queue | N/A |
+| `screenpool_capabilities` | Inspect supported features, tool list, formats, and presets | N/A |
+| `screenpool_help` | Query structured documentation, parameter guides & auth examples | `topic` (`"all"`, `"tools"`, `"sessions"`, `"auth"`, `"actions"`, `"targets"`, `"recording"`, `"diagnostics"`, `"formats"`, `"examples"`) |
 
 #### MCP Tool Request with Diagnostics Example
 

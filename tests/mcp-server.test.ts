@@ -373,4 +373,45 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     expect(runRes.recording?.id).toBe(runRes.recordingId);
     expect(runRes.recording?.artifacts).toBeDefined();
   });
+
+  it('supports persistent session creation and safe cleanup', async () => {
+    const sessionInfo = await handleSessionCreate(pool, { persistent: true });
+    expect(sessionInfo.id).toBeDefined();
+    expect(sessionInfo.persistent).toBe(true);
+
+    const session = pool.sessions.require(sessionInfo.id);
+    expect(session.isPersistent).toBe(true);
+
+    await session.goto(`${baseUrl}/test-page`);
+
+    // Verify observe and actions work on persistent session
+    const obs = await handleObserve(pool, { sessionId: sessionInfo.id, elements: true });
+    expect(obs.sessionId).toBe(sessionInfo.id);
+
+    // Closing persistent session cleans up pages without error
+    const closeRes = await handleSessionClose(pool, { sessionId: sessionInfo.id });
+    expect(closeRes.success).toBe(true);
+    expect(pool.sessions.get(sessionInfo.id)).toBeUndefined();
+  });
+
+  it('provides comprehensive handleHelp documentation across topics', async () => {
+    const allHelp = await handleHelp({ topic: 'all' });
+    expect(allHelp.topic).toBe('all');
+    expect(allHelp.tools.screenpool_session_create).toBeDefined();
+    expect(allHelp.authAndSessions).toBeDefined();
+    expect(allHelp.actions.click).toBeDefined();
+    expect(allHelp.targets.types.role).toBeDefined();
+    expect(allHelp.recording.presets.visual).toBeDefined();
+
+    const authHelp = await handleHelp({ topic: 'auth' });
+    expect(authHelp.authAndSessions.persistentProfiles).toBeDefined();
+
+    const actionsHelp = await handleHelp({ topic: 'actions' });
+    expect(actionsHelp.actions.fill).toBeDefined();
+    expect(actionsHelp.targets).toBeDefined();
+
+    const caps = await handleCapabilities(mcpServer.currentConfig);
+    expect(caps.tools.length).toBe(16);
+    expect(caps.sessions.persistentProfileSupported).toBe(true);
+  });
 });

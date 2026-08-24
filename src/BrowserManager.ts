@@ -57,6 +57,7 @@ export class BrowserManager {
         executablePath: this.executablePath,
         headless: true,
         args,
+        userDataDir: this.config.userDataDir,
       });
 
       this.isRemote = false;

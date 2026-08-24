@@ -43,6 +43,7 @@ export class ScreenpoolMcpServer {
         allowPrivateNetworks: this.config.security.allowPrivateNetwork,
         shared: this.config.shared !== false,
         idleTimeout: this.config.idleTimeout,
+        userDataDir: this.config.userDataDir,
       });
       this.isOwnPool = true;
     }

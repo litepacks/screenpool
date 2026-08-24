@@ -50,6 +50,7 @@ function buildPoolConfig(argv: any): ScreenPoolConfig {
     launchArgs: typeof argv['launch-args'] === 'string'
       ? argv['launch-args'].split(',').filter(Boolean)
       : undefined,
+    userDataDir: argv['user-data-dir'],
     memory: {
       limitMb: argv['memory-limit'],
       v8HeapMb: argv['v8-heap'],
@@ -681,6 +682,7 @@ async function main(): Promise<void> {
         .option('allow-private-network', { type: 'boolean', describe: 'Allow navigation to private network addresses' })
         .option('shared', { type: 'boolean', default: true, describe: 'Share singleton browser daemon across MCP instances' })
         .option('isolated', { type: 'boolean', describe: 'Force isolated local browser process' })
+        .option('user-data-dir', { type: 'string', describe: 'Path to persistent user data directory for Chromium profile (cookies, localStorage, auth)' })
         .option('idle-timeout', { type: 'number', describe: 'Idle timeout in ms before auto-closing browser' }),
       async () => {
         try {

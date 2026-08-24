@@ -28,6 +28,8 @@ export interface ScreenpoolMcpConfig {
   timeout?: number;
   headless?: boolean;
   artifactsDir?: string;
+  /** Path to persistent user data directory for Chromium profile (cookies, localStorage, auth) */
+  userDataDir?: string;
   logLevel?: LogLevel;
   /** Share singleton browser process across MCP instances (default: true) */
   shared?: boolean;
@@ -38,14 +40,16 @@ export interface ScreenpoolMcpConfig {
   mcp?: McpConfigSection;
 }
 
-export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFilePath' | 'browser' | 'executablePath'>> & {
+export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFilePath' | 'browser' | 'executablePath' | 'userDataDir'>> & {
   configFilePath?: string;
   browser?: string;
   executablePath?: string;
+  userDataDir?: string;
 } = {
   configFilePath: undefined,
   browser: undefined,
   executablePath: undefined,
+  userDataDir: undefined,
   poolSize: 3,
   maxQueueSize: 100,
   timeout: 30_000,
@@ -133,6 +137,7 @@ export function resolveMcpConfig(
   const envTimeout = process.env.SCREENPOOL_TIMEOUT ? parseInt(process.env.SCREENPOOL_TIMEOUT, 10) : undefined;
   const envHeadless = process.env.SCREENPOOL_HEADLESS ? process.env.SCREENPOOL_HEADLESS === 'true' : undefined;
   const envArtifactsDir = process.env.SCREENPOOL_ARTIFACTS_DIR;
+  const envUserDataDir = process.env.SCREENPOOL_USER_DATA_DIR;
   const envAllowPrivate = process.env.SCREENPOOL_ALLOW_PRIVATE_NETWORK
     ? process.env.SCREENPOOL_ALLOW_PRIVATE_NETWORK === 'true'
     : undefined;
@@ -140,6 +145,7 @@ export function resolveMcpConfig(
 
   const resolvedBrowser = cliOptions.browser ?? envBrowser ?? fileConfig.browser ?? DEFAULT_MCP_CONFIG.browser;
   const resolvedExecutablePath = cliOptions.executablePath ?? fileConfig.executablePath ?? DEFAULT_MCP_CONFIG.executablePath;
+  const resolvedUserDataDir = cliOptions.userDataDir ?? envUserDataDir ?? fileConfig.userDataDir ?? DEFAULT_MCP_CONFIG.userDataDir;
   const resolvedPoolSize = cliOptions.poolSize ?? envPoolSize ?? fileConfig.poolSize ?? DEFAULT_MCP_CONFIG.poolSize;
   const resolvedMaxQueueSize = cliOptions.maxQueueSize ?? fileConfig.maxQueueSize ?? DEFAULT_MCP_CONFIG.maxQueueSize;
   const resolvedTimeout = cliOptions.timeout ?? envTimeout ?? fileConfig.timeout ?? DEFAULT_MCP_CONFIG.timeout;
@@ -177,6 +183,7 @@ export function resolveMcpConfig(
     timeout: resolvedTimeout,
     headless: resolvedHeadless,
     artifactsDir: resolvedArtifactsDir,
+    userDataDir: resolvedUserDataDir,
     logLevel: resolvedLogLevel,
     shared: resolvedShared,
     idleTimeout: resolvedIdleTimeout,

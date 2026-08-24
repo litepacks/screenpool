@@ -82,6 +82,8 @@ export interface ScreenPoolConfig {
   diagnostics?: DiagnosticsInput;
   /** Shorthand for storage.outputDir */
   outputDir?: string;
+  /** Path to persistent user data directory for Chromium profile (cookies, localStorage, auth) */
+  userDataDir?: string;
 }
 
 export interface ViewportConfig {
@@ -242,6 +244,8 @@ export interface ResolvedScreenPoolConfig {
   allowPrivateNetworks: boolean;
   allowFileProtocol: boolean;
   shared: boolean;
+  /** Path to persistent user data directory for Chromium profile */
+  userDataDir?: string;
   defaultViewport: ViewportConfig;
   diagnostics?: DiagnosticsOptions;
   memory: Required<Pick<MemoryConfig, 'checkIntervalMs' | 'pressureThreshold' | 'restartOnLimit'>> &
@@ -292,6 +296,10 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     process.env.SCREENPOOL_TEMP_DIR ??
     `${os.tmpdir()}/screenpool`;
 
+  const userDataDir =
+    config.userDataDir ??
+    process.env.SCREENPOOL_USER_DATA_DIR;
+
   const envDiagnosticsInput = process.env.SCREENPOOL_DIAGNOSTICS;
   let resolvedDiagnosticsInput = config.diagnostics;
   if (resolvedDiagnosticsInput === undefined && envDiagnosticsInput !== undefined) {
@@ -337,6 +345,7 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     allowPrivateNetworks: config.allowPrivateNetworks ?? false,
     allowFileProtocol: config.allowFileProtocol ?? false,
     shared: config.shared ?? (process.env.SCREENPOOL_SHARED === 'true'),
+    userDataDir,
     defaultViewport: config.defaultViewport ?? {
       width: 1280,
       height: 720,

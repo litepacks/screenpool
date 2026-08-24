@@ -11,6 +11,8 @@ export type SessionState =
 
 export interface SessionOptions {
   ttlMs?: number;
+  /** Whether to attach to the default persistent browser context (preserving cookies/login). */
+  persistent?: boolean;
   pages?: Partial<PagePolicy>;
   policy?: Partial<ActionPolicy>;
 }
@@ -24,4 +26,5 @@ export interface BrowserSessionInfo {
   state: SessionState;
   mainPageId?: string;
   activePageId?: string;
+  persistent?: boolean;
 }

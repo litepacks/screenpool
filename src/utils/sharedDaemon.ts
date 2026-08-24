@@ -171,6 +171,7 @@ export async function acquireSharedBrowser(
       executablePath,
       headless: true,
       args,
+      userDataDir: config.userDataDir,
     });
 
     const wsEndpoint = browser.wsEndpoint();

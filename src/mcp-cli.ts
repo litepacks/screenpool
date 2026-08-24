@@ -63,6 +63,10 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       type: 'boolean',
       describe: 'Force isolated local browser process instead of shared daemon',
     })
+    .option('user-data-dir', {
+      type: 'string',
+      describe: 'Path to persistent user data directory for Chromium profile (cookies, localStorage, auth)',
+    })
     .option('idle-timeout', {
       type: 'number',
       describe: 'Idle timeout in ms before auto-closing browser (default: 600000)',
@@ -78,6 +82,7 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
     config: {
       browser: argv.browser,
       executablePath: argv['executable-path'],
+      userDataDir: argv['user-data-dir'],
       poolSize: argv['pool-size'],
       maxQueueSize: argv['max-pages'],
       timeout: argv.timeout,

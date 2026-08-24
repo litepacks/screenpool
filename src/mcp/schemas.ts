@@ -98,10 +98,10 @@ export const CapabilitiesInputSchema = z.object({});
 
 export const HelpInputSchema = z.object({
   topic: z
-    .enum(['all', 'tools', 'diagnostics', 'formats', 'examples'])
+    .enum(['all', 'tools', 'sessions', 'actions', 'targets', 'recording', 'auth', 'diagnostics', 'formats', 'examples'])
     .optional()
     .default('all')
-    .describe('Topic for documentation: "all", "tools", "diagnostics", "formats", or "examples"'),
+    .describe('Topic for documentation: "all", "tools", "sessions", "actions", "targets", "recording", "auth", "diagnostics", "formats", or "examples"'),
 });
 
 import { actionSchema } from '../actions/schemas.js';
@@ -120,7 +120,8 @@ export const PolicyInputSchema = z
   .optional();
 
 export const SessionCreateInputSchema = z.object({
-  ttlMs: z.number().optional(),
+  ttlMs: z.number().optional().describe('Session time-to-live in milliseconds after which session automatically expires.'),
+  persistent: z.boolean().optional().describe('Attach to Chromium default persistent profile context preserving cookies/login on disk.'),
   policy: PolicyInputSchema,
   pages: z
     .object({

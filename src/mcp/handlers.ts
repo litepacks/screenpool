@@ -180,6 +180,15 @@ export async function handleCapabilities(
     'screenpool_pdf',
     'screenpool_html',
     'screenpool_metadata',
+    'screenpool_session_create',
+    'screenpool_session_pages',
+    'screenpool_session_close',
+    'screenpool_observe',
+    'screenpool_act',
+    'screenpool_run',
+    'screenpool_record_start',
+    'screenpool_record_stop',
+    'screenpool_record_get',
     'screenpool_health',
     'screenpool_capabilities',
     'screenpool_help',
@@ -188,9 +197,15 @@ export async function handleCapabilities(
   return {
     version,
     tools: enabledTools,
+    userDataDir: config.userDataDir,
     formats: {
       screenshot: ['png', 'jpeg', 'webp'],
       pdf: ['A4', 'Letter', 'Legal', 'Tabloid', 'A3', 'A5'],
+    },
+    sessions: {
+      persistentProfileSupported: true,
+      multiPageSupported: true,
+      shadowDomSupported: true,
     },
     diagnostics: {
       supported: true,
@@ -217,43 +232,116 @@ export async function handleHelp(input: HelpInput) {
     screenpool_screenshot: {
       description: 'Capture web page screenshot in png, jpeg, or webp formats with full-page, element selector, and optional diagnostics.',
       parameters: {
-        url: 'string (required)',
-        fullPage: 'boolean (optional)',
+        url: 'string (required) - Web page URL to capture',
+        fullPage: 'boolean (optional) - Capture full scrollable page height',
         format: 'png | jpeg | webp (default: png)',
         quality: 'number 0-100 (for jpeg/webp)',
         viewport: '{ width: number, height: number, deviceScaleFactor?: number }',
         waitUntil: 'load | domcontentloaded | networkidle0 | networkidle2',
-        selector: 'string (CSS selector for specific element screenshot)',
+        selector: 'string (optional) - CSS selector for specific element screenshot',
+        includeElementHtml: 'boolean (optional) - Include HTML snippet of target element',
+        includeCode: 'boolean (optional) - Include code snippet representation',
+        delay: 'number (optional) - Extra delay in ms before capturing',
         diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
       },
     },
     screenpool_pdf: {
-      description: 'Render web page as PDF document with custom margins, landscape mode, and optional diagnostics.',
+      description: 'Render web page as PDF document with custom margins, landscape mode, scaling, and optional diagnostics.',
       parameters: {
-        url: 'string (required)',
+        url: 'string (required) - Web page URL to render',
         format: 'A4 | Letter | Legal | Tabloid | A3 | A5 (default: A4)',
-        landscape: 'boolean (optional)',
-        printBackground: 'boolean (default: true)',
+        landscape: 'boolean (optional) - Render in landscape orientation',
+        printBackground: 'boolean (default: true) - Print background graphics and colors',
         margin: '{ top?: string, right?: string, bottom?: string, left?: string }',
-        scale: 'number (0.1 to 2)',
+        scale: 'number 0.1 to 2.0 (default: 1)',
         waitUntil: 'load | domcontentloaded | networkidle0 | networkidle2',
         diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
       },
     },
     screenpool_html: {
-      description: 'Extract fully rendered HTML content after JavaScript execution.',
+      description: 'Extract fully rendered HTML content after JavaScript execution and hydration.',
       parameters: {
-        url: 'string (required)',
+        url: 'string (required) - Web page URL to extract',
         waitUntil: 'load | domcontentloaded | networkidle0 | networkidle2',
-        maxChars: 'number (max HTML character truncation limit, default 500,000)',
+        maxChars: 'number (default: 500,000) - Maximum HTML character limit',
         diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
       },
     },
     screenpool_metadata: {
-      description: 'Extract page title, description meta tag, canonical link, and final URL.',
+      description: 'Extract structured page metadata: title, meta description, canonical link, and resolved URL.',
       parameters: {
-        url: 'string (required)',
+        url: 'string (required) - Web page URL',
         diagnostics: 'boolean | "errors" | "standard" | "verbose" | DiagnosticsOptions',
+      },
+    },
+    screenpool_session_create: {
+      description: 'Create an isolated or persistent browser session with multi-page lifecycle tracking.',
+      parameters: {
+        ttlMs: 'number (optional) - Time-to-live in ms before auto-expiry',
+        persistent: 'boolean (optional) - Attach to Chromium default profile context preserving cookies/login on disk',
+        policy: '{ targets?: { css?: boolean, point?: boolean } } - Target policy overrides',
+        pages: '{ maxPages?: number, onPopup?: "register" | "register-and-activate" | "close" | "reject" }',
+      },
+    },
+    screenpool_session_pages: {
+      description: 'List managed pages and active/main page state in a session.',
+      parameters: {
+        sessionId: 'string (required) - Target browser session ID',
+      },
+    },
+    screenpool_session_close: {
+      description: 'Close an active browser session and release its isolated context (or pages if persistent).',
+      parameters: {
+        sessionId: 'string (required) - Session ID to close',
+      },
+    },
+    screenpool_observe: {
+      description: 'Capture page observation state including interactive element IDs, viewport, scroll, and compact HTML.',
+      parameters: {
+        sessionId: 'string (required) - Target session ID',
+        screenshot: 'boolean (optional) - Include base64 screenshot in observation',
+        html: '"off" | "compact" | "full" (optional, default: "compact") - Level of DOM structure returned',
+        elements: 'boolean (optional, default: true) - Discover and index interactive elements',
+      },
+    },
+    screenpool_act: {
+      description: 'Execute strict, verifiable browser actions (click, fill, press, select, scroll, wait, page actions) on a session.',
+      parameters: {
+        sessionId: 'string (required) - Target session ID',
+        actions: 'Action[] (required) - Array of action steps to execute sequentially',
+        observationId: 'string (optional) - ID of preceding observation for validation',
+        policy: '{ targets?: { css?: boolean, point?: boolean } } (optional)',
+      },
+    },
+    screenpool_run: {
+      description: 'Execute a sequence of browser actions in a temporary session with optional recording preset and artifact generation.',
+      parameters: {
+        url: 'string (optional) - Initial URL to open before executing actions',
+        actions: 'Action[] (required) - Array of actions to execute',
+        recording: '{ preset?: "actions" | "debug" | "visual" | "full", video?: boolean, screenshots?: string }',
+        policy: '{ targets?: { css?: boolean, point?: boolean } }',
+      },
+    },
+    screenpool_record_start: {
+      description: 'Start action recording and optional video capture on an existing or auto-created session.',
+      parameters: {
+        sessionId: 'string (optional) - Target session ID (auto-created if omitted)',
+        url: 'string (optional) - Initial URL to navigate to when auto-creating session',
+        options: '{ preset?: "actions" | "debug" | "visual" | "full", video?: boolean, screenshots?: string }',
+      },
+    },
+    screenpool_record_stop: {
+      description: 'Stop active recording and produce complete execution manifest, video, and action screenshots.',
+      parameters: {
+        sessionId: 'string (optional) - Session ID to stop recording for',
+        recordingId: 'string (optional) - Recording ID',
+        closeSession: 'boolean (optional) - Whether to close session after stopping recording',
+      },
+    },
+    screenpool_record_get: {
+      description: 'Get current recording status and start timestamp for a session.',
+      parameters: {
+        sessionId: 'string (optional) - Session ID to query',
       },
     },
     screenpool_health: {
@@ -265,18 +353,137 @@ export async function handleHelp(input: HelpInput) {
       parameters: {},
     },
     screenpool_help: {
-      description: 'Get structured documentation, usage instructions, diagnostics presets guide, and example payloads.',
+      description: 'Get structured documentation, usage instructions, action schemas, and authentication guides.',
       parameters: {
-        topic: 'all | tools | diagnostics | formats | examples',
+        topic: '"all" | "tools" | "sessions" | "auth" | "actions" | "targets" | "recording" | "diagnostics" | "formats" | "examples"',
       },
+    },
+  };
+
+  const authAndSessionsDoc = {
+    overview: 'ScreenPool supports both isolated (ephemeral) sessions and persistent authenticated profiles.',
+    persistentProfiles: {
+      howItWorks: 'When --user-data-dir is configured on ScreenPool or persistent: true is passed to screenpool_session_create, Chromium attaches to the disk-backed profile directory.',
+      benefits: [
+        'Persistent Login: Cookies, localStorage, session tokens, and IndexedDB persist across tool calls and server restarts.',
+        'Zero-Credential AI Interaction: Users can log into web applications manually once, allowing AI agents to interact with protected dashboards without needing credentials or solving 2FA/captchas.',
+        'Safe Cleanup: Closing a persistent session closes only the session tabs while keeping profile data and saved credentials intact.',
+      ],
+      mcpConfiguration: {
+        command: 'screenpool',
+        args: ['mcp', '--user-data-dir', './.screenpool-profile'],
+        environmentVariable: 'SCREENPOOL_USER_DATA_DIR="./.screenpool-profile"',
+      },
+    },
+    workflowExample: [
+      '1. Start MCP with persistent profile directory (e.g. SCREENPOOL_USER_DATA_DIR="./.my-profile").',
+      '2. Call screenpool_session_create with { persistent: true }.',
+      '3. Navigate to application URL and execute actions; all session state and cookies are automatically preserved.',
+    ],
+  };
+
+  const actionSchemasDoc = {
+    click: {
+      type: 'click',
+      target: { by: 'role', role: 'button', name: 'Submit' },
+      clickCount: 1,
+      button: 'left',
+      delayMs: 0,
+      description: 'Click on interactive element resolved by target',
+    },
+    fill: {
+      type: 'fill',
+      target: { by: 'role', role: 'textbox', name: 'Email' },
+      value: 'user@example.com',
+      clearFirst: true,
+      description: 'Clear input and type specified text',
+    },
+    press: {
+      type: 'press',
+      key: 'Enter',
+      description: 'Press keyboard key (e.g. Enter, Tab, Escape, ArrowDown)',
+    },
+    select: {
+      type: 'select',
+      target: { by: 'role', role: 'combobox', name: 'Country' },
+      values: ['US'],
+      description: 'Select option(s) in dropdown or multi-select',
+    },
+    scroll: {
+      type: 'scroll',
+      deltaX: 0,
+      deltaY: 500,
+      behavior: 'smooth',
+      description: 'Scroll window or scrollable container',
+    },
+    hover: {
+      type: 'hover',
+      target: { by: 'role', role: 'menuitem', name: 'Settings' },
+      description: 'Move mouse cursor over target element to trigger hover states or tooltips',
+    },
+    wait: {
+      type: 'wait',
+      durationMs: 1500,
+      description: 'Wait for specified duration in milliseconds',
+    },
+    screenshot: {
+      type: 'screenshot',
+      fullPage: true,
+      format: 'png',
+      description: 'Capture screenshot during action execution sequence',
+    },
+    pageActivate: {
+      type: 'page.activate',
+      targetPage: { by: 'alias', value: 'popup1' },
+      description: 'Switch active tab focus within session',
+    },
+    pageClose: {
+      type: 'page.close',
+      targetPage: { by: 'active' },
+      description: 'Close specified or currently active page in session',
+    },
+    pageWait: {
+      type: 'page.wait',
+      condition: { type: 'created', urlMatches: 'https://*' },
+      description: 'Wait for new tab/popup creation or navigation condition',
+    },
+  };
+
+  const targetsDoc = {
+    overview: 'Targets identify DOM elements across standard DOM and open Shadow DOM boundaries.',
+    types: {
+      role: '{ by: "role", role: "button" | "textbox" | "link" | "combobox" | "checkbox" | "radio", name?: string } (Recommended for accessibility & AI robustness)',
+      label: '{ by: "label", text: "Password", exact?: boolean }',
+      text: '{ by: "text", text: "Sign In", exact?: boolean }',
+      elementId: '{ by: "element-id", elementId: "e12" } (Obtained from screenpool_observe output)',
+      css: '{ by: "css", selector: "#submit-btn" } (Requires policy.targets.css = true)',
+      point: '{ by: "point", x: 100, y: 250 } (Requires policy.targets.point = true)',
+    },
+    policy: {
+      defaultSafety: 'css and point targets are disabled by default for AI safety to prevent fragile selectors.',
+      enablingPolicies: 'Pass policy: { targets: { css: true, point: true } } in session create, act, or run calls.',
+    },
+  };
+
+  const recordingDoc = {
+    presets: {
+      actions: 'Records action steps and manifest summary without video.',
+      debug: 'Captures action steps, plus auto-generates error screenshots and error HTML snapshots on failure.',
+      visual: 'Captures full video (.webm) with interactive HTML5 video presentation player artifact and step screenshots.',
+      full: 'Complete forensic capture: video, step screenshots, full console logs, network entries, and DOM snapshots.',
+    },
+    artifacts: {
+      manifest: 'manifest.json containing step timings, errors, and artifact file links.',
+      video: 'Full session video recording (.webm) and interactive player (.html).',
+      screenshots: 'Individual action before/after image captures.',
     },
   };
 
   const diagnosticsDoc = {
     presets: {
       errors: 'Captures critical JS errors, console error logs, network failures, HTTP 4xx/5xx status codes, and error page state snapshots.',
-      standard: 'Default for true. Captures warnings, errors, failed network requests, slow requests (>2000ms), sayfa durumu, hata anında screenshot, HTML ve page-state.',
-      verbose: 'Detailed tracing. Captures all console levels, all network requests/responses, timeline events, navigation/paint performance metrics, and artifact bundles.',
+      standard: 'Default for true. Captures warnings, errors, failed network requests, slow requests (>2000ms), and error artifacts.',
+      verbose: 'Detailed tracing: all console levels, all network requests/responses, timeline events, navigation/paint metrics, and artifact bundles.',
     },
     outputs: {
       summary: 'Returns summary object containing issue counts, top issues, slowest requests, and artifact references.',
@@ -293,25 +500,52 @@ export async function handleHelp(input: HelpInput) {
   };
 
   const examplesDoc = {
-    screenshotWithDiagnostics: {
-      url: 'https://example.com',
-      fullPage: true,
-      format: 'webp',
-      diagnostics: {
-        preset: 'standard',
-        output: 'summary',
+    persistentSessionWorkflow: {
+      step1_createSession: {
+        tool: 'screenpool_session_create',
+        args: {
+          persistent: true,
+          ttlMs: 3600000,
+        },
+      },
+      step2_observe: {
+        tool: 'screenpool_observe',
+        args: {
+          sessionId: 'session_xyz',
+          screenshot: true,
+        },
+      },
+      step3_act: {
+        tool: 'screenpool_act',
+        args: {
+          sessionId: 'session_xyz',
+          actions: [
+            { type: 'fill', target: { by: 'role', role: 'textbox', name: 'Search' }, value: 'ScreenPool MCP' },
+            { type: 'press', key: 'Enter' },
+            { type: 'wait', durationMs: 1000 },
+          ],
+        },
       },
     },
-    pdfWithCustomOptions: {
-      url: 'https://example.com',
-      format: 'A4',
-      landscape: true,
-      margin: { top: '1cm', bottom: '1cm' },
+    screenshotWithDiagnostics: {
+      tool: 'screenpool_screenshot',
+      args: {
+        url: 'https://example.com',
+        fullPage: true,
+        format: 'webp',
+        diagnostics: { preset: 'standard', output: 'summary' },
+      },
     },
-    htmlExtraction: {
-      url: 'https://example.com',
-      waitUntil: 'networkidle2',
-      maxChars: 100000,
+    statelessRunRecording: {
+      tool: 'screenpool_run',
+      args: {
+        url: 'https://example.com',
+        actions: [
+          { type: 'click', target: { by: 'role', role: 'button', name: 'Get Started' } },
+          { type: 'wait', durationMs: 500 },
+        ],
+        recording: { preset: 'visual', video: true },
+      },
     },
   };
 
@@ -320,19 +554,6 @@ export async function handleHelp(input: HelpInput) {
     elements: 'Buttons, textboxes, links, and custom Web Components inside open shadow roots are automatically discovered.',
     resolvers: 'Target resolvers (role, label, text, element-id, css, test-id) cross shadow root boundaries transparently.',
     closedShadowRoots: 'Closed shadow roots cannot be accessed via standard DOM APIs and will return a CLOSED_SHADOW_ROOT_NOT_ACCESSIBLE error.',
-  };
-
-  const actionSchemasDoc = {
-    click: { type: 'click', target: { by: 'role', role: 'button', name: 'Submit' } },
-    fill: { type: 'fill', target: { by: 'role', role: 'textbox', name: 'Search' }, value: 'fetch' },
-    press: { type: 'press', key: 'Enter' },
-    select: { type: 'select', target: { by: 'role', role: 'combobox' }, values: ['option-1'] },
-    scroll: { type: 'scroll', deltaY: 500, behavior: 'smooth' },
-    wait: { type: 'wait', durationMs: 2000 },
-    screenshot: { type: 'screenshot', fullPage: true, format: 'png' },
-    pageActivate: { type: 'page.activate', targetPage: { by: 'alias', value: 'popup1' } },
-    pageClose: { type: 'page.close', targetPage: { by: 'active' } },
-    pageWait: { type: 'page.wait', condition: { type: 'created', urlMatches: 'https://*' } },
   };
 
   const policyDoc = {
@@ -350,26 +571,44 @@ export async function handleHelp(input: HelpInput) {
   if (topic === 'tools') {
     return { topic, tools: toolsDoc, shadowDom: shadowDomDoc, actions: actionSchemasDoc };
   }
+  if (topic === 'sessions' || topic === 'auth') {
+    return { topic, authAndSessions: authAndSessionsDoc, tools: {
+      screenpool_session_create: toolsDoc.screenpool_session_create,
+      screenpool_session_pages: toolsDoc.screenpool_session_pages,
+      screenpool_session_close: toolsDoc.screenpool_session_close,
+      screenpool_observe: toolsDoc.screenpool_observe,
+      screenpool_act: toolsDoc.screenpool_act,
+    } };
+  }
+  if (topic === 'actions') {
+    return { topic, actions: actionSchemasDoc, targets: targetsDoc, policy: policyDoc };
+  }
+  if (topic === 'targets') {
+    return { topic, targets: targetsDoc, policy: policyDoc, shadowDom: shadowDomDoc };
+  }
+  if (topic === 'recording') {
+    return { topic, recording: recordingDoc };
+  }
   if (topic === 'diagnostics') {
     return { topic, diagnostics: diagnosticsDoc };
   }
   if (topic === 'examples') {
-    return { topic, examples: examplesDoc, actions: actionSchemasDoc, policy: policyDoc };
+    return { topic, examples: examplesDoc, policy: policyDoc };
   }
   if (topic === 'formats') {
-    return {
-      topic,
-      formats: formatsDoc,
-    };
+    return { topic, formats: formatsDoc };
   }
 
   return {
-    doc: 'Screenpool MCP Documentation',
+    doc: 'ScreenPool MCP Comprehensive Documentation',
     topic,
     tools: toolsDoc,
-    shadowDom: shadowDomDoc,
+    authAndSessions: authAndSessionsDoc,
     actions: actionSchemasDoc,
+    targets: targetsDoc,
     policy: policyDoc,
+    shadowDom: shadowDomDoc,
+    recording: recordingDoc,
     diagnostics: diagnosticsDoc,
     formats: formatsDoc,
     examples: examplesDoc,
