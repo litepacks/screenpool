@@ -187,6 +187,11 @@ await pool.stop();</code></pre>
               <td>Directly pass an existing Puppeteer <code>Browser</code> instance. Lifecycle is managed by user.</td>
               <td><code>{ browserInstance: existingBrowser }</code></td>
             </tr>
+            <tr>
+              <td><code>userDataDir</code></td>
+              <td>Path to persistent Chromium user data directory (preserves cookies, localStorage, and login state across restarts).</td>
+              <td><code>{ userDataDir: './.screenpool-profile' }</code></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -204,6 +209,7 @@ await pool.stop();</code></pre>
             <tr><td><code>maxQueueSize</code></td><td><code>100</code></td><td>Maximum number of pending render jobs to queue before failing with QueueOverflow.</td></tr>
             <tr><td><code>jobTimeout</code></td><td><code>15000</code></td><td>Timeout in ms for single render jobs.</td></tr>
             <tr><td><code>workerRestartAfterJobs</code></td><td><code>500</code></td><td>Recycle worker tab/context after this many completed jobs (0 disables).</td></tr>
+            <tr><td><code>userDataDir</code></td><td>—</td><td>Path to disk-backed profile directory for persistent cookies, storage, and authentication.</td></tr>
             <tr><td><code>allowLocalhost</code></td><td><code>false</code></td><td>Whether to allow renders from localhost URLs.</td></tr>
             <tr><td><code>allowPrivateNetworks</code></td><td><code>false</code></td><td>Whether to allow rendering URLs resolving to private subnets.</td></tr>
             <tr><td><code>allowFileProtocol</code></td><td><code>false</code></td><td>Whether to allow local file paths (<code>file://</code>).</td></tr>
@@ -388,28 +394,29 @@ screenpool-mcp</code></pre>
         <table class="w-full text-sm">
           <thead><tr><th>Tool Name</th><th>Description</th></tr></thead>
           <tbody class="text-slate-600 dark:text-slate-400">
-            <tr><td><code>screenpool_screenshot</code></td><td>Capture web page screenshot (png, jpeg, webp, fullPage, viewport, selector).</td></tr>
-            <tr><td><code>screenpool_pdf</code></td><td>Render web page as PDF (A4, Letter, landscape, margins).</td></tr>
+            <tr><td><code>screenpool_screenshot</code></td><td>Capture web page or element screenshot (png, jpeg, webp, fullPage, viewport, selector).</td></tr>
+            <tr><td><code>screenpool_pdf</code></td><td>Render web page as PDF document (A4, Letter, landscape, margins, scaling).</td></tr>
             <tr><td><code>screenpool_html</code></td><td>Extract client-side rendered HTML after JS execution (with truncation support).</td></tr>
-            <tr><td><code>screenpool_metadata</code></td><td>Extract page title, meta description, and canonical URL.</td></tr>
-            <tr><td><code>screenpool_session_create</code></td><td>Create an isolated browser session with multi-page tracking.</td></tr>
+            <tr><td><code>screenpool_metadata</code></td><td>Extract structured page title, meta description, and canonical URL.</td></tr>
+            <tr><td><code>screenpool_session_create</code></td><td>Create an isolated or persistent browser session with multi-page tracking (supports <code>persistent: true</code> for login retention).</td></tr>
             <tr><td><code>screenpool_session_pages</code></td><td>List managed pages in session and active/main status.</td></tr>
-            <tr><td><code>screenpool_session_close</code></td><td>Close active browser session and release isolated context.</td></tr>
-            <tr><td><code>screenpool_observe</code></td><td>Capture page observation state including interactive element IDs and compact DOM.</td></tr>
-            <tr><td><code>screenpool_act</code></td><td>Execute strict, verifiable browser actions (click, fill, press, select, scroll, wait, page actions).</td></tr>
-            <tr><td><code>screenpool_run</code></td><td>Stateless browser action run in a temporary session.</td></tr>
+            <tr><td><code>screenpool_session_close</code></td><td>Close active browser session and release isolated context (or tabs if persistent).</td></tr>
+            <tr><td><code>screenpool_observe</code></td><td>Capture page observation state including interactive element IDs, viewport, and compact DOM.</td></tr>
+            <tr><td><code>screenpool_act</code></td><td>Execute strict, verifiable browser actions (click, fill, press, select, scroll, hover, wait, page actions).</td></tr>
+            <tr><td><code>screenpool_run</code></td><td>Stateless browser action run in a temporary session with optional video/recording.</td></tr>
             <tr><td><code>screenpool_record_start</code></td><td>Start session recording (events jsonl, action screenshots, and video).</td></tr>
-            <tr><td><code>screenpool_record_stop</code></td><td>Stop session recording and return recording manifest.</td></tr>
+            <tr><td><code>screenpool_record_stop</code></td><td>Stop session recording and return complete execution manifest.</td></tr>
             <tr><td><code>screenpool_record_get</code></td><td>Get active session recording status.</td></tr>
             <tr><td><code>screenpool_health</code></td><td>View worker pool health status, active jobs, uptime, and queue length.</td></tr>
-            <tr><td><code>screenpool_capabilities</code></td><td>Inspect supported formats, tool list, and version information.</td></tr>
-            <tr><td><code>screenpool_help</code></td><td>Structured documentation, parameter guides, diagnostics presets, and examples.</td></tr>
+            <tr><td><code>screenpool_capabilities</code></td><td>Inspect supported formats, tool list, persistent profile support, and presets.</td></tr>
+            <tr><td><code>screenpool_help</code></td><td>Structured documentation, parameter guides (topics: <code>all</code>, <code>tools</code>, <code>sessions</code>, <code>auth</code>, <code>actions</code>, <code>targets</code>, <code>recording</code>, <code>diagnostics</code>).</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Client Configuration Example</h3>
-      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-6"><code class="language-json">{
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Client Configuration Examples</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Standard Stdio Configuration:</p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-4"><code class="language-json">{
   "mcpServers": {
     "screenpool": {
       "command": "npx",
@@ -425,13 +432,30 @@ screenpool-mcp</code></pre>
     }
   }
 }</code></pre>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Persistent Profile (Preserve Login State & Cookies):</p>
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-6"><code class="language-json">{
+  "mcpServers": {
+    "screenpool": {
+      "command": "screenpool",
+      "args": [
+        "mcp",
+        "--user-data-dir",
+        "/Users/user/.screenpool-profile"
+      ],
+      "env": {
+        "SCREENPOOL_USER_DATA_DIR": "/Users/user/.screenpool-profile"
+      }
+    }
+  }
+}</code></pre>
     </section>
 
     <section id="cli" class="doc-section mb-14">
       <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">CLI Reference</h2>
       <p class="text-slate-600 dark:text-slate-400 mb-4">Command line interface tools for quick scripts, daemons, and MCP server:</p>
-      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-8"><code class="language-bash"># Start MCP Server for AI tools over stdio
-screenpool mcp --pool-size 3 --timeout 30000
+      <pre class="bg-slate-900 p-5 rounded-xl text-sm overflow-x-auto mb-8"><code class="language-bash"># Start MCP Server for AI tools over stdio (with optional persistent profile)
+screenpool mcp --pool-size 3 --timeout 30000 --user-data-dir ~/.screenpool-profile
 
 # Take a screenshot and write to out.png
 screenpool screenshot https://example.com --out out.png --width 1280 --height 720
