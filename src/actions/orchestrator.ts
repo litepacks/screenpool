@@ -187,6 +187,7 @@ export class ActionOrchestrator {
           action.target,
           this.actionPolicy.targets,
           this.observationStore,
+          { timeoutMs: action.timeoutMs ?? 2_000 },
         );
 
         this.eventBus.emit('target.resolved', {
@@ -288,6 +289,7 @@ export class ActionOrchestrator {
           action.verify,
           this.actionPolicy.targets,
           this.observationStore,
+          action.timeoutMs ?? 3_000,
         );
 
         this.eventBus.emit('verification.completed', {

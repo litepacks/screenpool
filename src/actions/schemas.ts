@@ -56,6 +56,34 @@ export const targetSchema = z.discriminatedUnion('by', [
   }),
 ]);
 
+export const verificationConditionSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('url'),
+    matches: z.string(),
+    timeoutMs: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal('title'),
+    matches: z.string(),
+    timeoutMs: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal('element-visible'),
+    target: targetSchema,
+    timeoutMs: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal('element-hidden'),
+    target: targetSchema,
+    timeoutMs: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal('text-present'),
+    text: z.string(),
+    timeoutMs: z.number().optional(),
+  }),
+]);
+
 const expectedPageSchema = z.object({
   event: z.literal('popup'),
   alias: z.string().optional(),
@@ -69,6 +97,7 @@ const baseActionSchema = z.object({
   id: z.string().optional(),
   page: pageReferenceSchema.optional(),
   timeoutMs: z.number().optional(),
+  verify: z.array(verificationConditionSchema).optional(),
   onFailure: z.enum(['stop', 'continue']).optional(),
 });
 

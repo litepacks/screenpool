@@ -59,6 +59,35 @@ describe.skipIf(!hasChromium())('Browser Actions & Recording Integration Tests',
             </body>
           </html>
         `);
+      } else if (url === '/swup-app') {
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>SPA Home</title></head>
+            <body>
+              <div id="swup" class="transition-fade">
+                <h1>SPA Home Page</h1>
+                <a id="spa-nav-btn" href="/swup-about">Go to About</a>
+              </div>
+              <script>
+                document.getElementById('spa-nav-btn').addEventListener('click', (e) => {
+                  e.preventDefault();
+                  document.documentElement.classList.add('is-animating');
+                  setTimeout(() => {
+                    window.history.pushState({}, 'SPA About', '/swup-about');
+                    document.title = 'SPA About';
+                    document.getElementById('swup').innerHTML = \`
+                      <h1>About Page Loaded via Swup</h1>
+                      <p id="spa-content">Dynamic SPA Content</p>
+                      <button id="spa-action-btn" onclick="this.textContent = 'Action Clicked!'">Click Me</button>
+                    \`;
+                    document.documentElement.classList.remove('is-animating');
+                  }, 250);
+                });
+              </script>
+            </body>
+          </html>
+        `);
       } else {
         res.end('<html><body>Default</body></html>');
       }
@@ -264,6 +293,41 @@ describe.skipIf(!hasChromium())('Browser Actions & Recording Integration Tests',
       ],
     });
     expect(actResult.success).toBe(true);
+    await session.close();
+  });
+
+  test('SPA and Swup-like route transitions succeed with async polling verification and target resolution', async () => {
+    const session = await pool.sessions.create({ pages: { maxPages: 2 } });
+    await session.goto(`${serverUrl}/swup-app`);
+
+    // 1. Click link that triggers async Swup transition with DOM swap & history.pushState
+    const actResult = await session.act({
+      actions: [
+        {
+          type: 'click',
+          target: { by: 'text', value: 'Go to About' },
+          verify: [
+            { type: 'url', matches: '/swup-about', timeoutMs: 3_000 },
+            { type: 'title', matches: 'SPA About', timeoutMs: 3_000 },
+            { type: 'element-visible', target: { by: 'text', value: 'Click Me' }, timeoutMs: 3_000 },
+          ],
+        },
+        {
+          type: 'click',
+          target: { by: 'text', value: 'Click Me' },
+          verify: [
+            { type: 'text-present', text: 'Action Clicked!', timeoutMs: 3_000 },
+          ],
+        },
+      ],
+    });
+
+    expect(actResult.success).toBe(true);
+    expect(actResult.steps[0].status).toBe('success');
+    expect(actResult.steps[1].status).toBe('success');
+    expect(actResult.steps[0].verification?.success).toBe(true);
+    expect(actResult.steps[1].verification?.success).toBe(true);
+
     await session.close();
   });
 });

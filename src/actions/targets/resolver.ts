@@ -9,23 +9,8 @@ export async function resolveTarget(
   target: Target,
   policy: TargetPolicy,
   observationStore: ObservationStore,
+  options?: { timeoutMs?: number; intervalMs?: number },
 ): Promise<ResolvedTarget> {
-  // Policy checks
-  if (target.by === 'element-id' && !policy.elementId) {
-    throw new ActionError(
-      'ACTION_NOT_ALLOWED',
-      'Target type "element-id" is disallowed by target policy.',
-    );
-  }
-  if (
-    (target.by === 'role' || target.by === 'label' || target.by === 'text' || target.by === 'test-id') &&
-    !policy.semantic
-  ) {
-    throw new ActionError(
-      'ACTION_NOT_ALLOWED',
-      'Semantic target types are disallowed by target policy.',
-    );
-  }
   // Policy checks
   if (target.by === 'element-id' && !policy.elementId) {
     throw new ActionError(
@@ -63,65 +48,84 @@ export async function resolveTarget(
     };
   }
 
-  let elementHandles: ElementHandle[] = [];
+  const timeoutMs = options?.timeoutMs ?? 2_000;
+  const intervalMs = options?.intervalMs ?? 50;
+  const start = Date.now();
 
-  if (target.by === 'element-id') {
-    const obs = observationStore.get(target.observationId);
-    if (!obs) {
-      throw new ActionError(
-        'OBSERVATION_NOT_FOUND',
-        `Observation ${target.observationId} was not found.`,
+  let visibleHandles: ElementHandle[] = [];
+  let candidates: TargetCandidate[] = [];
+
+  while (true) {
+    let elementHandles: ElementHandle[] = [];
+
+    if (target.by === 'element-id') {
+      const obs = observationStore.get(target.observationId);
+      if (!obs) {
+        throw new ActionError(
+          'OBSERVATION_NOT_FOUND',
+          `Observation ${target.observationId} was not found.`,
+        );
+      }
+      const elem = obs.elements?.find((e) => e.id === target.value);
+      if (!elem) {
+        throw new ActionError(
+          'TARGET_NOT_FOUND',
+          `Element ${target.value} was not found in observation ${target.observationId}.`,
+        );
+      }
+
+      // Try finding by data-screenpool-id attribute across document and open shadow roots
+      elementHandles = await queryShadowElementsByAttribute(page, 'data-screenpool-id', target.value);
+
+      if (elementHandles.length === 0 && elem.box) {
+        // Fallback: point in center of element box
+        const cx = elem.box.x + elem.box.width / 2;
+        const cy = elem.box.y + elem.box.height / 2;
+        const handle = await page.evaluateHandle(
+          (x, y) => (globalThis as any).document.elementFromPoint(x, y),
+          cx,
+          cy,
+        );
+        const asElement = handle.asElement() as ElementHandle | null;
+        if (asElement) {
+          elementHandles = [asElement];
+        }
+      }
+    } else if (target.by === 'css') {
+      elementHandles = await queryShadowElementsBySelector(page, target.value);
+    } else if (target.by === 'test-id') {
+      const val = target.value;
+      elementHandles = await queryShadowElementsBySelector(
+        page,
+        `[data-testid="${val}"], [data-test-id="${val}"], [data-qa="${val}"]`,
       );
+    } else {
+      // Semantic query in page context (shadow DOM aware)
+      elementHandles = await querySemanticElements(page, target);
     }
-    const elem = obs.elements?.find((e) => e.id === target.value);
-    if (!elem) {
-      throw new ActionError(
-        'TARGET_NOT_FOUND',
-        `Element ${target.value} was not found in observation ${target.observationId}.`,
-      );
-    }
 
-    // Try finding by data-screenpool-id attribute across document and open shadow roots
-    elementHandles = await queryShadowElementsByAttribute(page, 'data-screenpool-id', target.value);
+    // Filter for visible elements
+    visibleHandles = [];
+    candidates = [];
 
-    if (elementHandles.length === 0 && elem.box) {
-      // Fallback: point in center of element box
-      const cx = elem.box.x + elem.box.width / 2;
-      const cy = elem.box.y + elem.box.height / 2;
-      const handle = await page.evaluateHandle(
-        (x, y) => (globalThis as any).document.elementFromPoint(x, y),
-        cx,
-        cy,
-      );
-      const asElement = handle.asElement() as ElementHandle | null;
-      if (asElement) {
-        elementHandles = [asElement];
+    for (const handle of elementHandles) {
+      const isVis = await isElementVisible(handle);
+      if (isVis) {
+        visibleHandles.push(handle);
+        const cand = await describeElement(handle);
+        candidates.push(cand);
       }
     }
-  } else if (target.by === 'css') {
-    elementHandles = await queryShadowElementsBySelector(page, target.value);
-  } else if (target.by === 'test-id') {
-    const val = target.value;
-    elementHandles = await queryShadowElementsBySelector(
-      page,
-      `[data-testid="${val}"], [data-test-id="${val}"], [data-qa="${val}"]`,
-    );
-  } else {
-    // Semantic query in page context (shadow DOM aware)
-    elementHandles = await querySemanticElements(page, target);
-  }
 
-  // Filter for visible elements
-  const visibleHandles: ElementHandle[] = [];
-  const candidates: TargetCandidate[] = [];
-
-  for (const handle of elementHandles) {
-    const isVis = await isElementVisible(handle);
-    if (isVis) {
-      visibleHandles.push(handle);
-      const cand = await describeElement(handle);
-      candidates.push(cand);
+    if (visibleHandles.length > 0) {
+      break;
     }
+
+    if (Date.now() - start >= timeoutMs) {
+      break;
+    }
+
+    await new Promise((r) => setTimeout(r, Math.min(intervalMs, Math.max(10, timeoutMs - (Date.now() - start)))));
   }
 
   if (visibleHandles.length === 0) {
@@ -129,7 +133,7 @@ export async function resolveTarget(
     const hasClosedShadow = await page.evaluate(() => {
       const all = Array.from((globalThis as any).document.querySelectorAll('*')) as any[];
       return all.some((el) => el.tagName.includes('-') && !el.shadowRoot);
-    });
+    }).catch(() => false);
 
     if (hasClosedShadow && target.by === 'css' && target.value.includes('closed')) {
       throw new ActionError(

@@ -150,6 +150,8 @@ export async function handleClick(params: {
   if (action.waitAfter) {
     if (typeof action.waitAfter === 'number') {
       await new Promise((r) => setTimeout(r, action.waitAfter as number));
+    } else if (action.waitAfter === 'load' || action.waitAfter === 'domcontentloaded') {
+      await page.rawPage.waitForNavigation({ waitUntil: action.waitAfter, timeout: 5_000 }).catch(() => undefined);
     } else {
       await page.rawPage.waitForNetworkIdle({
         idleTime: 500,
