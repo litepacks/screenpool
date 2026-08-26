@@ -25,15 +25,36 @@ export async function handleClick(params: {
         count: action.count ?? 1,
       });
     } else if (target?.elementHandle) {
-      if (action.count === 2) {
-        await target.elementHandle.click({
-          button: action.button ?? 'left',
-          count: 2,
-        });
-      } else {
-        await target.elementHandle.click({
-          button: action.button ?? 'left',
-        });
+      try {
+        // Ensure element is scrolled into view in DOM
+        await target.elementHandle.evaluate((el: any) => {
+          if (typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+          }
+        }).catch(() => undefined);
+
+        if (action.count === 2) {
+          await target.elementHandle.click({
+            button: action.button ?? 'left',
+            count: 2,
+          });
+        } else {
+          await target.elementHandle.click({
+            button: action.button ?? 'left',
+          });
+        }
+      } catch (clickErr: any) {
+        if (
+          clickErr?.message?.includes('Node is either not clickable') ||
+          clickErr?.message?.includes('Element is outside of the viewport')
+        ) {
+          // Fallback to DOM click when CDP clickablePoint fails due to container overflow/viewport geometry
+          await target.elementHandle.evaluate((el: any) => {
+            el.click();
+          });
+        } else {
+          throw clickErr;
+        }
       }
     } else {
       throw new ActionError('INVALID_ACTION', 'Click action requires a valid target.');
