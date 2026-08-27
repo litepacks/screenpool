@@ -623,10 +623,68 @@ export async function handleSessionCreate(pool: ScreenPool, input: any) {
 export async function handleSessionPages(pool: ScreenPool, input: any) {
   const session = pool.sessions.require(input.sessionId);
   const pagesList = await session.pages.list();
+  let devtools;
+  try {
+    devtools = await session.getDevTools();
+  } catch {}
+
   return {
     mainPageId: session.mainPageId,
     activePageId: session.activePageId,
     pages: pagesList,
+    devtools,
+  };
+}
+
+export async function handleCdpSend(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const result = await session.sendCDP(input.method, input.params, input.page);
+  return {
+    success: true,
+    sessionId: input.sessionId,
+    method: input.method,
+    result,
+  };
+}
+
+export async function handleModeSwitch(pool: ScreenPool, input: any) {
+  await pool.switchMode({
+    headless: input.headless,
+    devtools: input.devtools,
+    remoteDebuggingPort: input.remoteDebuggingPort,
+  });
+  return {
+    success: true,
+    headless: input.headless,
+    devtools: input.devtools,
+    remoteDebuggingPort: input.remoteDebuggingPort,
+  };
+}
+
+export async function handleStateExport(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const state = await session.exportState(input.page);
+  return {
+    success: true,
+    sessionId: input.sessionId,
+    state,
+  };
+}
+
+export async function handleStateImport(pool: ScreenPool, input: any) {
+  const session = pool.sessions.require(input.sessionId);
+  const result = await session.importState(
+    {
+      cookies: input.cookies,
+      localStorage: input.localStorage,
+      sessionStorage: input.sessionStorage,
+    },
+    input.page,
+  );
+  return {
+    success: true,
+    sessionId: input.sessionId,
+    ...result,
   };
 }
 

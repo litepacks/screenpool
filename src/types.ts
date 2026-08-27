@@ -84,6 +84,12 @@ export interface ScreenPoolConfig {
   outputDir?: string;
   /** Path to persistent user data directory for Chromium profile (cookies, localStorage, auth) */
   userDataDir?: string;
+  /** Auto-open Chrome DevTools for every page (implies headless: false) */
+  devtools?: boolean;
+  /** Remote debugging port for CDP / DevTools connection (e.g. 9222 or 0) */
+  remoteDebuggingPort?: number;
+  /** Headless mode setting (default: true) */
+  headless?: boolean | 'shell';
 }
 
 export interface ViewportConfig {
@@ -246,6 +252,9 @@ export interface ResolvedScreenPoolConfig {
   shared: boolean;
   /** Path to persistent user data directory for Chromium profile */
   userDataDir?: string;
+  devtools: boolean;
+  remoteDebuggingPort?: number;
+  headless: boolean | 'shell';
   defaultViewport: ViewportConfig;
   diagnostics?: DiagnosticsOptions;
   memory: Required<Pick<MemoryConfig, 'checkIntervalMs' | 'pressureThreshold' | 'restartOnLimit'>> &
@@ -328,6 +337,18 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     maxNetworkEntries: envMaxNetwork,
   });
 
+  const devtools = config.devtools ?? (process.env.SCREENPOOL_DEVTOOLS === 'true');
+  const remoteDebuggingPort =
+    config.remoteDebuggingPort ??
+    (process.env.SCREENPOOL_REMOTE_DEBUGGING_PORT
+      ? Number.parseInt(process.env.SCREENPOOL_REMOTE_DEBUGGING_PORT, 10)
+      : undefined);
+
+  let headless: boolean | 'shell' = config.headless ?? true;
+  if (devtools) {
+    headless = false;
+  }
+
   return {
     executablePath: config.executablePath,
     browser: config.browser,
@@ -346,6 +367,9 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     allowFileProtocol: config.allowFileProtocol ?? false,
     shared: config.shared ?? (process.env.SCREENPOOL_SHARED === 'true'),
     userDataDir,
+    devtools,
+    remoteDebuggingPort,
+    headless,
     defaultViewport: config.defaultViewport ?? {
       width: 1280,
       height: 720,

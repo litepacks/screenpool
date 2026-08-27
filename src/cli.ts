@@ -51,6 +51,11 @@ function buildPoolConfig(argv: any): ScreenPoolConfig {
       ? argv['launch-args'].split(',').filter(Boolean)
       : undefined,
     userDataDir: argv['user-data-dir'],
+    devtools: argv.devtools !== undefined ? Boolean(argv.devtools) : undefined,
+    remoteDebuggingPort: argv['remote-debugging-port'] !== undefined ? Number(argv['remote-debugging-port']) : undefined,
+    headless: argv.headless !== undefined
+      ? (argv.headless === 'shell' ? 'shell' : Boolean(argv.headless))
+      : undefined,
     memory: {
       limitMb: argv['memory-limit'],
       v8HeapMb: argv['v8-heap'],
@@ -426,6 +431,18 @@ async function main(): Promise<void> {
     .option('launch-args', {
       type: 'string',
       describe: 'Comma-separated launch arguments',
+    })
+    .option('devtools', {
+      type: 'boolean',
+      describe: 'Auto-open Chrome DevTools for every page (headed mode)',
+    })
+    .option('remote-debugging-port', {
+      type: 'number',
+      describe: 'Remote debugging port for CDP / DevTools connection (e.g. 9222)',
+    })
+    .option('headless', {
+      type: 'string',
+      describe: 'Headless mode: "true", "false", or "shell"',
     })
     .option('memory-limit', {
       type: 'number',

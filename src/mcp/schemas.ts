@@ -104,7 +104,7 @@ export const HelpInputSchema = z.object({
     .describe('Topic for documentation: "all", "tools", "sessions", "actions", "targets", "recording", "auth", "diagnostics", "formats", or "examples"'),
 });
 
-import { actionSchema } from '../actions/schemas.js';
+import { actionSchema, pageReferenceSchema } from '../actions/schemas.js';
 
 export const PolicyInputSchema = z
   .object({
@@ -199,9 +199,39 @@ export const RecordGetInputSchema = z.object({
   sessionId: z.string().optional().describe('Session ID to get recording status for. If omitted, finds active recording automatically.'),
 });
 
+export const CdpSendInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required').describe('ID of the target browser session'),
+  method: z.string().min(1, 'method is required').describe('Chrome DevTools Protocol method name (e.g. Network.emulateNetworkConditions, Emulation.setDeviceMetricsOverride, Page.captureSnapshot)'),
+  params: z.record(z.string(), z.any()).optional().describe('Parameters object for the CDP method'),
+  page: pageReferenceSchema.optional().describe('Target page reference (default: active page)'),
+});
+
+export const ModeSwitchInputSchema = z.object({
+  headless: z.union([z.boolean(), z.enum(['shell'])]).describe('Headless mode: false for headed (visible on screen), true for headless, or "shell"'),
+  devtools: z.boolean().optional().describe('Whether to auto-open Chrome DevTools for every page'),
+  remoteDebuggingPort: z.number().int().positive().optional().describe('Remote debugging port for CDP connection'),
+});
+
+export const StateExportInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required').describe('Target browser session ID'),
+  page: pageReferenceSchema.optional().describe('Target page reference (default: active page)'),
+});
+
+export const StateImportInputSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId is required').describe('Target browser session ID'),
+  cookies: z.array(z.record(z.string(), z.any())).optional().describe('Array of cookie objects to import'),
+  localStorage: z.record(z.string(), z.string()).optional().describe('Key-value pairs for localStorage'),
+  sessionStorage: z.record(z.string(), z.string()).optional().describe('Key-value pairs for sessionStorage'),
+  page: pageReferenceSchema.optional().describe('Target page reference (default: active page)'),
+});
+
 export type ScreenshotInput = z.infer<typeof ScreenshotInputSchema>;
 export type PdfInput = z.infer<typeof PdfInputSchema>;
 export type HtmlInput = z.infer<typeof HtmlInputSchema>;
 export type MetadataInput = z.infer<typeof MetadataInputSchema>;
 export type HelpInput = z.infer<typeof HelpInputSchema>;
+export type CdpSendInput = z.infer<typeof CdpSendInputSchema>;
+export type ModeSwitchInput = z.infer<typeof ModeSwitchInputSchema>;
+export type StateExportInput = z.infer<typeof StateExportInputSchema>;
+export type StateImportInput = z.infer<typeof StateImportInputSchema>;
 

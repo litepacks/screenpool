@@ -214,6 +214,43 @@ export class ScreenPool extends EventEmitter {
     }
   }
 
+  /** Get the active browser WebSocket endpoint URL for CDP / DevTools inspection if available. */
+  getWSEndpoint(): string | undefined {
+    return this.browserManager.getWSEndpoint();
+  }
+
+  /**
+   * Dynamically switch display mode (headless <-> headed / devtools) and reconfigure the active browser instance on the fly while preserving user profile data.
+   */
+  async switchMode(options: {
+    headless?: boolean | 'shell';
+    devtools?: boolean;
+    remoteDebuggingPort?: number;
+  }): Promise<void> {
+    if (!this.started) {
+      throw new ScreenPoolNotStartedError('Cannot switch mode: ScreenPool is not started.');
+    }
+    if (this.stopping) {
+      throw new ScreenPoolStoppingError('Cannot switch mode: ScreenPool is stopping.');
+    }
+
+    // Wait briefly for active rendering jobs to finish if any
+    await this.waitForActiveJobs();
+
+    // Close any active sessions gracefully before reconfiguring browser
+    await this.sessions.closeAll().catch(() => undefined);
+
+    const newBrowser = await this.browserManager.reconfigure(options);
+    if (this.workerPool) {
+      await this.workerPool.setBrowser(newBrowser);
+    }
+    this.emit('mode:switched', {
+      headless: this.config.headless,
+      devtools: this.config.devtools,
+      remoteDebuggingPort: this.config.remoteDebuggingPort,
+    });
+  }
+
   /** Pool statistics snapshot. */
   stats(): PoolStats {
     const health = this.healthMonitor?.getStats();

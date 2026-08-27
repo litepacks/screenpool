@@ -20,6 +20,10 @@ import {
   RecordStartInputSchema,
   RecordStopInputSchema,
   RecordGetInputSchema,
+  CdpSendInputSchema,
+  ModeSwitchInputSchema,
+  StateExportInputSchema,
+  StateImportInputSchema,
 } from './schemas.js';
 import {
   handleScreenshot,
@@ -38,6 +42,10 @@ import {
   handleRecordStart,
   handleRecordStop,
   handleRecordGet,
+  handleCdpSend,
+  handleModeSwitch,
+  handleStateExport,
+  handleStateImport,
 } from './handlers.js';
 import { randomBytes } from 'node:crypto';
 
@@ -63,6 +71,10 @@ export function registerMcpTools(
       'screenpool_record_start',
       'screenpool_record_stop',
       'screenpool_record_get',
+      'screenpool_cdp_send',
+      'screenpool_mode_switch',
+      'screenpool_state_export',
+      'screenpool_state_import',
       'screenpool_health',
       'screenpool_capabilities',
       'screenpool_help',
@@ -419,4 +431,68 @@ export function registerMcpTools(
     const res = await handleRecordGet(pool, args);
     return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
   });
+
+  // 17. screenpool_cdp_send
+  if (enabled.has('screenpool_cdp_send')) {
+    server.registerTool(
+      'screenpool_cdp_send',
+      {
+        description: 'Send a raw Chrome DevTools Protocol (CDP) command to an active browser session (e.g. Network.emulateNetworkConditions, Emulation.setDeviceMetricsOverride, Page.captureSnapshot).',
+        inputSchema: CdpSendInputSchema,
+      },
+      async (args) => {
+        if (ensureStarted) await ensureStarted();
+        const res = await handleCdpSend(pool, args);
+        return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+      },
+    );
+  }
+
+  // 18. screenpool_mode_switch
+  if (enabled.has('screenpool_mode_switch')) {
+    server.registerTool(
+      'screenpool_mode_switch',
+      {
+        description: 'Dynamically switch the running browser pool between headless and headed (visible window) modes on the fly while preserving persistent profile data.',
+        inputSchema: ModeSwitchInputSchema,
+      },
+      async (args) => {
+        if (ensureStarted) await ensureStarted();
+        const res = await handleModeSwitch(pool, args);
+        return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+      },
+    );
+  }
+
+  // 19. screenpool_state_export
+  if (enabled.has('screenpool_state_export')) {
+    server.registerTool(
+      'screenpool_state_export',
+      {
+        description: 'Export all authentication cookies, localStorage, and sessionStorage from an active browser session to portable JSON format.',
+        inputSchema: StateExportInputSchema,
+      },
+      async (args) => {
+        if (ensureStarted) await ensureStarted();
+        const res = await handleStateExport(pool, args);
+        return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+      },
+    );
+  }
+
+  // 20. screenpool_state_import
+  if (enabled.has('screenpool_state_import')) {
+    server.registerTool(
+      'screenpool_state_import',
+      {
+        description: 'Import authentication cookies and localStorage into an active browser session.',
+        inputSchema: StateImportInputSchema,
+      },
+      async (args) => {
+        if (ensureStarted) await ensureStarted();
+        const res = await handleStateImport(pool, args);
+        return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+      },
+    );
+  }
 }

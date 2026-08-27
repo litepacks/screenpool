@@ -1,4 +1,6 @@
 import puppeteer, { type Browser } from 'puppeteer-core';
+import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import type { ResolvedScreenPoolConfig } from './types.js';
 import { resolveBrowserExecutable } from './utils/resolveBrowserExecutable.js';
 import { buildLaunchArgs } from './utils/buildLaunchArgs.js';
@@ -17,6 +19,7 @@ export class BrowserManager {
   private isShared = false;
   private exitHookRegistered = false;
   private exitHook?: () => void;
+  private isIntentionalClose = false;
 
   constructor(private readonly config: ResolvedScreenPoolConfig) {}
 
@@ -55,9 +58,17 @@ export class BrowserManager {
 
       this.browser = await puppeteer.launch({
         executablePath: this.executablePath,
-        headless: true,
+        headless: this.config.devtools ? false : this.config.headless,
+        devtools: this.config.devtools,
         args,
         userDataDir: this.config.userDataDir,
+        defaultViewport: this.config.defaultViewport
+          ? {
+              width: this.config.defaultViewport.width,
+              height: this.config.defaultViewport.height,
+              deviceScaleFactor: this.config.defaultViewport.deviceScaleFactor,
+            }
+          : null,
       });
 
       this.isRemote = false;
@@ -72,9 +83,13 @@ export class BrowserManager {
     }
 
     this.browser.on('disconnected', () => {
+      const wasIntentional = this.isIntentionalClose;
+      this.isIntentionalClose = false;
       this.browser = null;
       this.removeExitHook();
-      this.disconnectHandler?.();
+      if (!wasIntentional) {
+        this.disconnectHandler?.();
+      }
     });
 
     return this.browser;
@@ -83,6 +98,11 @@ export class BrowserManager {
   /** Register handler for browser disconnect/crash. */
   onDisconnect(handler: BrowserDisconnectHandler): void {
     this.disconnectHandler = handler;
+  }
+
+  /** Get WebSocket endpoint URL for CDP / DevTools connection if connected. */
+  getWSEndpoint(): string | undefined {
+    return this.browser?.wsEndpoint();
   }
 
   /** Get the active browser or throw. */
@@ -114,9 +134,34 @@ export class BrowserManager {
     return this.launch();
   }
 
+  /** Reconfigure display settings (headless, devtools, remoteDebuggingPort) and restart browser process. */
+  async reconfigure(options: {
+    headless?: boolean | 'shell';
+    devtools?: boolean;
+    remoteDebuggingPort?: number;
+  }): Promise<Browser> {
+    if (options.devtools !== undefined) {
+      (this.config as any).devtools = options.devtools;
+    }
+    if (options.headless !== undefined) {
+      (this.config as any).headless = options.headless;
+    }
+    if (options.remoteDebuggingPort !== undefined) {
+      (this.config as any).remoteDebuggingPort = options.remoteDebuggingPort;
+    }
+    if (this.config.devtools) {
+      (this.config as any).headless = false;
+    }
+    await this.close();
+    // Allow OS and Chromium process to release file locks and flush SQLite files
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return this.launch();
+  }
+
   /** Close or disconnect browser gracefully with force-kill fallback. */
   async close(): Promise<void> {
     if (this.browser) {
+      this.isIntentionalClose = true;
       const browserToClose = this.browser;
       const pid = browserToClose.process()?.pid;
       this.browser = null;
@@ -129,7 +174,7 @@ export class BrowserManager {
           browserToClose.disconnect();
         } else {
           // Dedicated local browser: attempt graceful close with a strict timeout
-          const closePromise = browserToClose.close();
+          const closePromise = browserToClose.close().catch(() => undefined);
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Browser.close timed out')), 2000),
           );
@@ -144,6 +189,31 @@ export class BrowserManager {
               }
             }
           });
+
+          // Ensure OS process has actually terminated
+          if (pid) {
+            try {
+              let attempts = 0;
+              while (attempts++ < 20) {
+                process.kill(pid, 0);
+                await new Promise((r) => setTimeout(r, 50));
+              }
+              try {
+                process.kill(pid, 'SIGKILL');
+              } catch {}
+            } catch {
+              // Process exited successfully
+            }
+          }
+
+          // Clean up stale lock files in userDataDir if process is gone
+          if (this.config.userDataDir) {
+            try {
+              rmSync(join(this.config.userDataDir, 'SingletonLock'), { force: true });
+              rmSync(join(this.config.userDataDir, 'SingletonSocket'), { force: true });
+              rmSync(join(this.config.userDataDir, 'SingletonCookie'), { force: true });
+            } catch {}
+          }
         }
       } catch {
         // ignore close errors
@@ -155,8 +225,11 @@ export class BrowserManager {
     return Boolean(this.browser?.connected);
   }
 
-  /** Chromium opens a blank tab in the default context — close it to save memory. */
+  /** Chromium opens a blank tab in the default context — close it in headless mode to save memory. */
   private async closeDefaultContextPages(browser: Browser): Promise<void> {
+    if (this.config.headless === false || this.config.devtools) {
+      return;
+    }
     try {
       const pages = await browser.defaultBrowserContext().pages();
       await Promise.all(
