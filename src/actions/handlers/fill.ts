@@ -32,10 +32,46 @@ export async function handleFill(params: {
     );
   }
 
-  if (action.clear !== false) {
-    await target.elementHandle.click({ count: 3 });
-    await page.rawPage.keyboard.press('Backspace');
-  }
+  // 1. Ensure element is actively focused
+  await target.elementHandle.focus().catch(() => undefined);
 
-  await target.elementHandle.type(action.value);
+  // 2. Set value with native prototype setter to update React / Vue / Svelte controlled state
+  await target.elementHandle.evaluate(
+    (el: any, val: string, shouldClear: boolean) => {
+      if (el.isContentEditable) {
+        if (shouldClear) {
+          el.textContent = val;
+        } else {
+          el.textContent = (el.textContent || '') + val;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+        return;
+      }
+
+      const proto = Object.getPrototypeOf(el);
+      const descriptor =
+        Object.getOwnPropertyDescriptor(proto, 'value') ||
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value') ||
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+
+      const finalVal = shouldClear ? val : (el.value || '') + val;
+
+      if (descriptor?.set) {
+        descriptor.set.call(el, finalVal);
+      } else {
+        el.value = finalVal;
+      }
+
+      // Reset React's internal value tracker so React detects the change
+      if (el._valueTracker) {
+        el._valueTracker.setValue('');
+      }
+
+      el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    },
+    action.value,
+    action.clear !== false,
+  );
 }

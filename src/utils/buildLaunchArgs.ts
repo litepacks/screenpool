@@ -1,8 +1,12 @@
 import { DEFAULT_CHROMIUM_ARGS, type ResolvedScreenPoolConfig } from '../types.js';
 
-/** Build Chromium launch arguments from config. */
 export function buildLaunchArgs(config: ResolvedScreenPoolConfig): string[] {
   let args: string[] = [...DEFAULT_CHROMIUM_ARGS];
+
+  // On macOS (darwin), --no-sandbox causes Mach port kernel crash (os/kern failure 5)
+  if (process.platform === 'darwin') {
+    args = args.filter((a) => a !== '--no-sandbox' && a !== '--disable-setuid-sandbox');
+  }
 
   if (config.devtools || config.headless === false) {
     args = args.filter(
@@ -13,10 +17,6 @@ export function buildLaunchArgs(config: ResolvedScreenPoolConfig): string[] {
         a !== '--metrics-recording-only' &&
         a !== '--aggressive-cache-discard',
     );
-    // On macOS, --no-sandbox causes AppKit / Mach port kernel crash in GUI headed mode
-    if (process.platform === 'darwin') {
-      args = args.filter((a) => a !== '--no-sandbox' && a !== '--disable-setuid-sandbox');
-    }
     args.push('--enable-automation', '--no-default-browser-check', '--test-type');
   } else if (config.headless === 'shell') {
     args = args.filter((a) => !a.startsWith('--headless'));

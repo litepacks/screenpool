@@ -461,7 +461,7 @@ export class BrowserSessionImpl implements BrowserSession {
   }
 
   /** Open a temporary headed (visible) browser window synchronized with this session's state for user interaction. */
-  async openHeadedHandoff(options: { url?: string; autoSyncOnClose?: boolean } = {}): Promise<HeadedHandoffController> {
+  async openHeadedHandoff(options: { url?: string; autoSyncOnClose?: boolean; headless?: boolean | 'shell' } = {}): Promise<HeadedHandoffController> {
     this.assertOpen();
     this.touch();
 
@@ -473,14 +473,17 @@ export class BrowserSessionImpl implements BrowserSession {
     const target = this.registry.getActive() ?? this.registry.getMain();
     const targetUrl = options.url || target?.url || 'about:blank';
     const autoSync = options.autoSyncOnClose ?? true;
+    const isHeadless = options.headless ?? false;
 
     // Export current state
     const currentState = await this.exportState();
 
-    // Launch temporary visible browser
+    // Launch temporary browser window
     let executablePath: string;
     try {
-      executablePath = (this.browser as any)._process?.spawnfile;
+      executablePath =
+        this.browser.process()?.spawnfile ??
+        (this.browser as any)._process?.spawnfile;
       if (!executablePath) {
         executablePath = await resolveBrowserExecutable({});
       }
@@ -488,8 +491,13 @@ export class BrowserSessionImpl implements BrowserSession {
       executablePath = await resolveBrowserExecutable({});
     }
 
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const tempUserDataDir = mkdtempSync(join(tmpdir(), 'sp-handoff-'));
+
     const headedArgs = buildLaunchArgs({
-      headless: false,
+      headless: isHeadless,
       devtools: false,
       memory: {},
       launchArgs: [],
@@ -497,7 +505,8 @@ export class BrowserSessionImpl implements BrowserSession {
 
     const headedBrowser = await puppeteer.launch({
       executablePath,
-      headless: false,
+      headless: isHeadless,
+      userDataDir: tempUserDataDir,
       args: headedArgs,
       defaultViewport: null,
     });
@@ -543,6 +552,9 @@ export class BrowserSessionImpl implements BrowserSession {
       closed = true;
       const state = await captureState();
       await headedBrowser.close().catch(() => undefined);
+      try {
+        rmSync(tempUserDataDir, { recursive: true, force: true });
+      } catch {}
       return state;
     };
 
@@ -551,6 +563,9 @@ export class BrowserSessionImpl implements BrowserSession {
         headedBrowser.on('disconnected', async () => {
           if (!closed) {
             closed = true;
+            try {
+              rmSync(tempUserDataDir, { recursive: true, force: true });
+            } catch {}
             resolve({ cookies: [], exportedAt: new Date().toISOString() });
           }
         });

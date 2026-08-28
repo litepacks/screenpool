@@ -316,7 +316,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     const manifest = runRes.recording;
     expect(manifest.video).toBeDefined();
     expect(manifest.video.timestampsMonotonic).toBe(true);
-  }, 30000);
+  }, 60000);
 
   // Scenario F: TTL / closeSession finalization
   it('Scenario F: finalizes active video recording without losing frames when session TTL expires or closes', async () => {

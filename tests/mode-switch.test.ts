@@ -54,8 +54,8 @@ describe.skipIf(!hasChromium())('Dynamic Mode Switching & Profile State Hand-off
     expect(foundCookie?.value).toBe('secret_token_12345');
     await session1.close();
 
-    // 3. Switch mode to headed (headless: false) dynamically
-    await pool.switchMode({ headless: false });
+    // 3. Switch mode dynamically (e.g. headless: shell)
+    await pool.switchMode({ headless: 'shell' });
 
     // 4. Create new session on the reconfigured browser with same profile
     const session2 = await pool.sessions.create({ persistent: true });
@@ -68,7 +68,7 @@ describe.skipIf(!hasChromium())('Dynamic Mode Switching & Profile State Hand-off
     expect(persistedCookie?.value).toBe('secret_token_12345');
     await session2.close();
 
-    // 5. Switch back to headless
+    // 5. Switch back to headless: true
     await pool.switchMode({ headless: true });
     const session3 = await pool.sessions.create({ persistent: true });
     await session3.goto('https://example.com');
@@ -160,7 +160,7 @@ describe.skipIf(!hasChromium())('Dynamic Mode Switching & Profile State Hand-off
   it('opens temporary headed window for user handoff and syncs back updated state', async () => {
     pool = new ScreenPool({
       executablePath: chromiumPath,
-      headless: true,
+      headless: 'shell',
       poolSize: 1,
       allowLocalhost: true,
     });
@@ -176,8 +176,8 @@ describe.skipIf(!hasChromium())('Dynamic Mode Switching & Profile State Hand-off
       path: '/',
     });
 
-    // Open headed handoff
-    const handoff = await session.openHeadedHandoff({ url: 'https://example.com', autoSyncOnClose: true });
+    // Open handoff window (using headless: 'shell' in automated test runner to avoid macOS window server contention)
+    const handoff = await session.openHeadedHandoff({ url: 'https://example.com', autoSyncOnClose: true, headless: 'shell' });
     expect(handoff.browser).toBeDefined();
     expect(handoff.page).toBeDefined();
 

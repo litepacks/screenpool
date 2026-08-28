@@ -126,5 +126,5 @@ export interface BrowserSession {
   importState(state: Partial<SessionStateExport>, pageRef?: PageReference): Promise<{ importedCookies: number; importedStorageKeys: number }>;
 
   /** Open a temporary headed (visible) browser window synchronized with this session's state for user interaction. */
-  openHeadedHandoff(options?: { url?: string; autoSyncOnClose?: boolean }): Promise<HeadedHandoffController>;
+  openHeadedHandoff(options?: { url?: string; autoSyncOnClose?: boolean; headless?: boolean | 'shell' }): Promise<HeadedHandoffController>;
 }
