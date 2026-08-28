@@ -100,11 +100,41 @@ For buttons opening popups:
 { "type": "wait", "target": { "by": "css", "value": ".toast-success" }, "state": "visible", "timeoutMs": 5000 }
 ```
 
-### 3.5. `scroll`, `hover`, `drag`, `selectOption`, `evaluate`
-- `scroll`: `direction: "down" | "up"`, `amount: 500`, or scroll until element is visible.
-- `hover`: Moves mouse over the target element.
-- `selectOption`: Selects option values from `<select>` elements (`values: ["opt1"]`).
-- `evaluate`: Executes JavaScript expressions in the page context (`script: "() => document.title"`).
+### 3.5. `select` (Native HTML `<select>` Elements)
+- For native `<select>` tags, use the `select` action with `values: ["optionValue"]`:
+```json
+{
+  "type": "select",
+  "target": { "by": "css", "value": "#country-select" },
+  "values": ["tr"]
+}
+```
+
+### 3.6. Custom Dropdowns & Dynamic Menus (Click-to-Open)
+- Custom dropdowns (React / Vue / TailWind / Radix / Floating UI) are handled seamlessly by executing sequential clicks:
+  1. **Click the dropdown trigger button** to open the menu.
+  2. *(Optional for animated/async menus)* **`wait`** for the item to become visible.
+  3. **Click the target menu item** (by text, role, or CSS selector).
+
+```json
+[
+  { "type": "click", "target": { "by": "css", "value": "#fruit-dropdown-btn" } },
+  { "type": "click", "target": { "by": "text", "value": "Banana" } }
+]
+```
+
+Or for async / animated dropdowns:
+```json
+[
+  { "type": "click", "target": { "by": "css", "value": "#plan-picker-btn" } },
+  { "type": "wait", "selector": { "by": "css", "value": "#enterprise-plan" }, "state": "visible" },
+  { "type": "click", "target": { "by": "css", "value": "#enterprise-plan" } }
+]
+```
+
+### 3.7. `scroll`, `press` Navigation
+- `scroll`: `x`, `y`, `deltaX`, `deltaY` scrolling.
+- `press`: Keyboard navigation in open menus (`ArrowDown`, `ArrowUp`, `Enter`, `Escape`).
 
 ---
 
