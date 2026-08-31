@@ -34,8 +34,19 @@ jobs:
       - name: Run Build
         run: npm run build
 
+      - name: Cache Chromium binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.screenpool/browser
+            ~/.cache/puppeteer
+          key: chromium-${{ runner.os }}-${{ matrix.node-version }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            chromium-${{ runner.os }}-${{ matrix.node-version }}-
+
       - name: Setup Chromium
         run: node dist/cli.js setup
 
       - name: Run Tests
         run: npm test
+

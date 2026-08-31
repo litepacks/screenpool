@@ -148,15 +148,24 @@ export class PuppeteerVisualRecorder {
 
     if (rec.screencast) {
       try {
-        await rec.screencast.stop().catch(() => undefined);
+        await Promise.race([
+          rec.screencast.stop(),
+          new Promise((r) => setTimeout(r, 1000)),
+        ]).catch(() => undefined);
       } catch {}
     }
     if (rec.client) {
       try {
-        await rec.client.send('Page.stopScreencast').catch(() => undefined);
-        // Wait 150ms flush window for in-flight CDP screencast frames
-        await new Promise((r) => setTimeout(r, 150));
-        await rec.client.detach().catch(() => undefined);
+        await Promise.race([
+          rec.client.send('Page.stopScreencast'),
+          new Promise((r) => setTimeout(r, 1000)),
+        ]).catch(() => undefined);
+        // Wait brief flush window for in-flight CDP screencast frames
+        await new Promise((r) => setTimeout(r, 100));
+        await Promise.race([
+          rec.client.detach(),
+          new Promise((r) => setTimeout(r, 500)),
+        ]).catch(() => undefined);
       } catch {}
     }
     if (rec.onFrameNavigated) {

@@ -64,10 +64,10 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end('<!DOCTYPE html><html><head><title>Search Results</title></head><body><h1>Search Results for Fetch</h1></body></html>');
       } else if (req.url === '/redirect-1') {
-        res.writeHead(302, { Location: '/redirect-2' });
+        res.writeHead(302, { Location: `${baseUrl}/redirect-2` });
         res.end();
       } else if (req.url === '/redirect-2') {
-        res.writeHead(302, { Location: '/final-page' });
+        res.writeHead(302, { Location: `${baseUrl}/final-page` });
         res.end();
       } else if (req.url === '/final-page') {
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -123,7 +123,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
       pool,
       {
         url: `${baseUrl}/input-page`,
-        policy: { targets: { css: true } },
+        policy: { targets: { css: true, semantic: true } },
         actions: [
           {
             type: 'fill',
@@ -165,29 +165,28 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
       pool,
       {
         url: `${baseUrl}/search`,
-        policy: { targets: { css: true } },
+        policy: { targets: { css: true, semantic: true } },
         actions: [
           {
             type: 'click',
             target: {
-              by: 'role',
-              role: 'button',
-              name: 'Search',
+              by: 'css',
+              value: '#search-btn',
             },
           },
           {
             type: 'fill',
             target: {
-              by: 'role',
-              role: 'textbox',
+              by: 'css',
+              value: '#textbox',
             },
             value: 'fetch',
           },
           {
             type: 'press',
             target: {
-              by: 'role',
-              role: 'textbox',
+              by: 'css',
+              value: '#textbox',
             },
             key: 'Enter',
           },
@@ -233,7 +232,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
       pool,
       {
         url: `${baseUrl}/redirect-1`,
-        policy: { targets: { css: true } },
+        policy: { targets: { css: true, semantic: true } },
         actions: [
           {
             type: 'wait',

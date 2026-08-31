@@ -203,7 +203,10 @@ export class SessionRecorder {
 
     if (shouldCaptureScreenshot) {
       try {
-        const buffer = (await page.rawPage.screenshot({ fullPage: false, type: 'png' })) as Buffer;
+        const buffer = (await Promise.race([
+          page.rawPage.screenshot({ fullPage: false, type: 'png' }),
+          new Promise<Buffer>((_, reject) => setTimeout(() => reject(new Error('Screenshot timeout')), 2500)),
+        ])) as Buffer;
         await this.storage.saveScreenshot({
           pageId: page.id,
           actionId: event.actionId,
@@ -228,7 +231,10 @@ export class SessionRecorder {
 
     if (shouldCaptureHtml) {
       try {
-        const content = await page.rawPage.content();
+        const content = await Promise.race([
+          page.rawPage.content(),
+          new Promise<string>((_, reject) => setTimeout(() => reject(new Error('HTML capture timeout')), 2500)),
+        ]);
         await this.storage.saveHtml({
           pageId: page.id,
           actionId: event.actionId,
