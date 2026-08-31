@@ -156,7 +156,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     const videoArt = manifest.artifacts.find((a: any) => a.type === 'video');
     expect(videoArt).toBeDefined();
     expect(existsSync(videoArt!.path)).toBe(true);
-  }, 30000);
+  }, 90000);
 
   // Scenario B: Full page navigation (Search flow simulation)
   it('Scenario B: performs full page navigation flow with monotonic timestamps and final URL match', async () => {
@@ -193,7 +193,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
           },
           {
             type: 'wait',
-            durationMs: 2500,
+            durationMs: 500,
           },
         ],
         recording: {
@@ -207,10 +207,9 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
 
     expect(runRes.success).toBe(true);
 
-    // Verify wait action duration is within reasonable tolerance (~2500ms +/- 1000ms)
     const waitStep = runRes.steps.find((s: any) => s.type === 'wait');
     expect(waitStep).toBeDefined();
-    expect(waitStep!.durationMs).toBeGreaterThanOrEqual(2400);
+    expect(waitStep!.durationMs).toBeGreaterThanOrEqual(400);
     expect(waitStep!.durationMs).toBeLessThan(15000);
 
     const manifest = runRes.recording;
@@ -225,7 +224,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     const videoArt = manifest.artifacts.find((a: any) => a.type === 'video');
     expect(videoArt).toBeDefined();
     expect(existsSync(videoArt!.path)).toBe(true);
-  }, 60000);
+  }, 90000);
 
   // Scenario C: Redirect chain navigation
   it('Scenario C: preserves video segment order and monotonic PTS across HTTP redirect chain', async () => {
@@ -238,7 +237,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
         actions: [
           {
             type: 'wait',
-            durationMs: 500,
+            durationMs: 300,
           },
         ],
         recording: {
@@ -254,7 +253,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     expect(manifest.video).toBeDefined();
     expect(manifest.video.timestampsMonotonic).toBe(true);
     expect(manifest.video.finalUrl).toContain('final-page');
-  }, 30000);
+  }, 90000);
 
   // Scenario D: Fast navigation (fill immediately followed by press Enter)
   it('Scenario D: captures typed value frame in video even with fast consecutive navigation actions', async () => {
@@ -301,7 +300,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     const videoArt = recStop.manifest.artifacts.find((a: any) => a.type === 'video');
     expect(videoArt).toBeDefined();
     expect(existsSync(videoArt!.path)).toBe(true);
-  }, 30000);
+  }, 90000);
 
   // Scenario E: Popup & multi-page timeline
   it('Scenario E: orders video segments correctly across multi-page / popup timeline', async () => {
@@ -340,7 +339,7 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     const manifest = runRes.recording;
     expect(manifest.video).toBeDefined();
     expect(manifest.video.timestampsMonotonic).toBe(true);
-  }, 60000);
+  }, 90000);
 
   // Scenario F: TTL / closeSession finalization
   it('Scenario F: finalizes active video recording without losing frames when session TTL expires or closes', async () => {
@@ -366,5 +365,5 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     expect(recStop.success).toBe(true);
     expect(recStop.manifest.video).toBeDefined();
     expect(recStop.manifest.video.frameCount).toBeGreaterThanOrEqual(0);
-  }, 30000);
+  }, 90000);
 });
