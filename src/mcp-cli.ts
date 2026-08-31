@@ -71,6 +71,10 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       type: 'number',
       describe: 'Idle timeout in ms before auto-closing browser (default: 600000)',
     })
+    .option('stealth', {
+      type: 'boolean',
+      describe: 'Enable stealth mode with evasions in MCP browser pool',
+    })
     .help()
     .alias('help', 'h')
     .parse();
@@ -87,6 +91,7 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       maxQueueSize: argv['max-pages'],
       timeout: argv.timeout,
       headless: argv.headless,
+      stealth: argv.stealth !== undefined ? Boolean(argv.stealth) : undefined,
       artifactsDir: argv['artifacts-dir'],
       logLevel: argv['log-level'] as LogLevel | undefined,
       shared: isShared,

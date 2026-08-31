@@ -62,6 +62,67 @@ await pool.stop();
 | Remote URL | `{ browserURL: "http://localhost:9222" }` | Connects via local debugging HTTP URL |
 | Custom Instance | `{ browserInstance: existingBrowser }` | Reuses existing Puppeteer `Browser` instance |
 
+## Stealth Mode
+
+Screenpool includes optional, isolated **Stealth Mode** powered by `puppeteer-extra` and `puppeteer-extra-plugin-stealth` to reduce browser automation fingerprints (such as `navigator.webdriver`, missing plugins, default user agent markers, and WebGL indicators).
+
+Stealth configuration is **pool-level** and applied when the browser process initializes, ensuring all worker contexts and pages inherit evasions without per-page overhead.
+
+### Basic Usage
+
+```ts
+import { ScreenPool } from 'screenpool';
+
+const pool = new ScreenPool({
+  stealth: true,
+});
+
+await pool.start();
+const result = await pool.screenshot({ url: 'https://example.com' });
+await pool.stop();
+```
+
+Default is `stealth: false`. Standard pools use pure `puppeteer-core` with zero overhead.
+
+### Advanced Evasion Configuration
+
+You can customize which evasions to enable or disable:
+
+```ts
+const pool = new ScreenPool({
+  stealth: {
+    enabled: true,
+    // Optional: disable specific evasions
+    disabledEvasions: [
+      'webgl.vendor',
+    ],
+    // Optional: explicit whitelist of evasions to enable
+    // enabledEvasions: ['navigator.webdriver', 'navigator.languages'],
+  },
+});
+```
+
+### CLI & MCP Usage
+
+Enable stealth via CLI flags or environment variable:
+
+```bash
+# CLI Screenshot / Run / Server
+screenpool screenshot https://example.com --stealth
+screenpool run flow.json --stealth
+screenpool server --stealth
+
+# MCP Server
+screenpool mcp --stealth
+screenpool-mcp --stealth
+
+# Environment Variable
+SCREENPOOL_STEALTH=true screenpool server
+```
+
+> [!NOTE]
+> Stealth mode helps reduce automated browser fingerprints and heuristics. However, it does not guarantee bypassing advanced anti-bot systems, rate limiting, authentication gates, or CAPTCHA challenges.
+
 ## HTTP server
 
 ```ts

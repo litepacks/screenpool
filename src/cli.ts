@@ -56,6 +56,7 @@ function buildPoolConfig(argv: any): ScreenPoolConfig {
     headless: argv.headless !== undefined
       ? (argv.headless === 'shell' ? 'shell' : Boolean(argv.headless))
       : undefined,
+    stealth: argv.stealth !== undefined ? Boolean(argv.stealth) : undefined,
     memory: {
       limitMb: argv['memory-limit'],
       v8HeapMb: argv['v8-heap'],
@@ -461,6 +462,10 @@ async function main(): Promise<void> {
       type: 'boolean',
       describe: 'Force local execution in-process (bypass any running local daemon)',
     })
+    .option('stealth', {
+      type: 'boolean',
+      describe: 'Enable stealth mode with evasions to reduce automation detection',
+    })
     .command(
       'screenshot <url>',
       'Capture screenshot from URL',
@@ -700,7 +705,8 @@ async function main(): Promise<void> {
         .option('shared', { type: 'boolean', default: true, describe: 'Share singleton browser daemon across MCP instances' })
         .option('isolated', { type: 'boolean', describe: 'Force isolated local browser process' })
         .option('user-data-dir', { type: 'string', describe: 'Path to persistent user data directory for Chromium profile (cookies, localStorage, auth)' })
-        .option('idle-timeout', { type: 'number', describe: 'Idle timeout in ms before auto-closing browser' }),
+        .option('idle-timeout', { type: 'number', describe: 'Idle timeout in ms before auto-closing browser' })
+        .option('stealth', { type: 'boolean', describe: 'Enable stealth mode with evasions in MCP browser pool' }),
       async () => {
         try {
           const { runMcpCli } = await import('./mcp-cli.js');

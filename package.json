@@ -36,6 +36,7 @@
     "typecheck": "tsc --noEmit",
     "benchmark": "tsx scripts/benchmark.ts",
     "benchmark:diagnostics": "tsx scripts/benchmark-diagnostics.ts",
+    "benchmark:stealth": "tsx scripts/benchmark-stealth.ts",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -48,6 +49,8 @@
     "hono": "^4.13.4",
     "pipsel": "^0.0.7",
     "puppeteer-core": "^25.8.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "unitup": "^0.1.5",
     "yargs": "^18.0.0",
     "zod": "^4.4.3"

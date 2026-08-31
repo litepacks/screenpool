@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { LogLevel } from './logger.js';
 import type { BrowserShorthand } from '../types.js';
+import type { StealthInput } from '../stealth/types.js';
 
 export interface SecurityConfig {
   allowPrivateNetwork?: boolean;
@@ -27,6 +28,8 @@ export interface ScreenpoolMcpConfig {
   maxQueueSize?: number;
   timeout?: number;
   headless?: boolean;
+  /** Stealth mode configuration to evade browser automation detection */
+  stealth?: StealthInput;
   artifactsDir?: string;
   /** Path to persistent user data directory for Chromium profile (cookies, localStorage, auth) */
   userDataDir?: string;
@@ -54,6 +57,7 @@ export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFileP
   maxQueueSize: 100,
   timeout: 30_000,
   headless: true,
+  stealth: false,
   artifactsDir: '.screenpool/artifacts',
   logLevel: 'info',
   shared: true,
@@ -141,6 +145,9 @@ export function resolveMcpConfig(
   const envAllowPrivate = process.env.SCREENPOOL_ALLOW_PRIVATE_NETWORK
     ? process.env.SCREENPOOL_ALLOW_PRIVATE_NETWORK === 'true'
     : undefined;
+  const envStealth = process.env.SCREENPOOL_STEALTH
+    ? process.env.SCREENPOOL_STEALTH === 'true' || process.env.SCREENPOOL_STEALTH === '1'
+    : undefined;
   const envLogLevel = process.env.SCREENPOOL_LOG_LEVEL as LogLevel | undefined;
 
   const resolvedBrowser = cliOptions.browser ?? envBrowser ?? fileConfig.browser ?? DEFAULT_MCP_CONFIG.browser;
@@ -150,6 +157,7 @@ export function resolveMcpConfig(
   const resolvedMaxQueueSize = cliOptions.maxQueueSize ?? fileConfig.maxQueueSize ?? DEFAULT_MCP_CONFIG.maxQueueSize;
   const resolvedTimeout = cliOptions.timeout ?? envTimeout ?? fileConfig.timeout ?? DEFAULT_MCP_CONFIG.timeout;
   const resolvedHeadless = cliOptions.headless ?? envHeadless ?? fileConfig.headless ?? DEFAULT_MCP_CONFIG.headless;
+  const resolvedStealth = cliOptions.stealth ?? envStealth ?? fileConfig.stealth ?? DEFAULT_MCP_CONFIG.stealth;
   const resolvedArtifactsDir = cliOptions.artifactsDir ?? envArtifactsDir ?? fileConfig.artifactsDir ?? fileConfig.artifacts?.dir ?? DEFAULT_MCP_CONFIG.artifactsDir;
   const resolvedLogLevel = cliOptions.logLevel ?? envLogLevel ?? fileConfig.logLevel ?? DEFAULT_MCP_CONFIG.logLevel;
 
@@ -182,6 +190,7 @@ export function resolveMcpConfig(
     maxQueueSize: resolvedMaxQueueSize,
     timeout: resolvedTimeout,
     headless: resolvedHeadless,
+    stealth: resolvedStealth,
     artifactsDir: resolvedArtifactsDir,
     userDataDir: resolvedUserDataDir,
     logLevel: resolvedLogLevel,

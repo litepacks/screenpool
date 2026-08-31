@@ -254,6 +254,9 @@ export class ScreenPool extends EventEmitter {
   /** Pool statistics snapshot. */
   stats(): PoolStats {
     const health = this.healthMonitor?.getStats();
+    const provider = this.browserManager.getProvider();
+    const providerInfo = provider.getDiagnosticsInfo?.() as any;
+
     return {
       started: this.started,
       poolSize: this.config.poolSize,
@@ -267,6 +270,35 @@ export class ScreenPool extends EventEmitter {
       memoryUsageMb: health?.memoryUsageMb ?? 0,
       memoryLimitMb: this.config.memory.limitMb,
       memoryBlocked: health?.memoryBlocked ?? false,
+      browserProvider: provider.name,
+      stealth: providerInfo?.stealth
+        ? {
+            enabled: Boolean(providerInfo.stealth.enabled),
+            evasionsCount: providerInfo.stealth.evasionsCount,
+          }
+        : {
+            enabled: false,
+          },
+    };
+  }
+
+  /** Pool status and diagnostics overview. */
+  status(): {
+    started: boolean;
+    browserProvider: 'puppeteer-core' | 'puppeteer-extra';
+    stealth: { enabled: boolean; evasionsCount?: number };
+    poolSize: number;
+    activeJobs: number;
+    queuedJobs: number;
+  } {
+    const st = this.stats();
+    return {
+      started: st.started,
+      browserProvider: st.browserProvider ?? 'puppeteer-core',
+      stealth: st.stealth ?? { enabled: false },
+      poolSize: st.poolSize,
+      activeJobs: st.activeJobs,
+      queuedJobs: st.queuedJobs,
     };
   }
 

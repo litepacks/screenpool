@@ -44,6 +44,7 @@ export class ScreenpoolMcpServer {
         shared: this.config.shared !== false,
         idleTimeout: this.config.idleTimeout,
         userDataDir: this.config.userDataDir,
+        stealth: this.config.stealth,
       });
       this.isOwnPool = true;
     }

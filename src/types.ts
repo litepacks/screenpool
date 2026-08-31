@@ -33,6 +33,8 @@ export interface BrowserInstallConfig {
 }
 
 import type { DiagnosticsInput, DiagnosticsOptions, DiagnosticsResult } from './diagnostics/types.js';
+import type { StealthConfig, StealthInput, ResolvedStealthConfig } from './stealth/types.js';
+import { normalizeStealthConfig } from './stealth/normalize-config.js';
 
 /** Memory limits and monitoring configuration. */
 export interface MemoryConfig {
@@ -90,6 +92,8 @@ export interface ScreenPoolConfig {
   remoteDebuggingPort?: number;
   /** Headless mode setting (default: true) */
   headless?: boolean | 'shell';
+  /** Stealth mode configuration to evade browser automation detection */
+  stealth?: StealthInput;
 }
 
 export interface ViewportConfig {
@@ -218,6 +222,11 @@ export interface PoolStats {
   memoryUsageMb: number;
   memoryLimitMb?: number;
   memoryBlocked: boolean;
+  browserProvider?: 'puppeteer-core' | 'puppeteer-extra';
+  stealth?: {
+    enabled: boolean;
+    evasionsCount?: number;
+  };
 }
 
 /** Internal queued job representation. */
@@ -255,6 +264,7 @@ export interface ResolvedScreenPoolConfig {
   devtools: boolean;
   remoteDebuggingPort?: number;
   headless: boolean | 'shell';
+  stealth: ResolvedStealthConfig;
   defaultViewport: ViewportConfig;
   diagnostics?: DiagnosticsOptions;
   memory: Required<Pick<MemoryConfig, 'checkIntervalMs' | 'pressureThreshold' | 'restartOnLimit'>> &
@@ -349,6 +359,8 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     headless = false;
   }
 
+  const stealth = normalizeStealthConfig(config.stealth, process.env.SCREENPOOL_STEALTH);
+
   return {
     executablePath: config.executablePath,
     browser: config.browser,
@@ -370,6 +382,7 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     devtools,
     remoteDebuggingPort,
     headless,
+    stealth,
     defaultViewport: config.defaultViewport ?? {
       width: 1280,
       height: 720,

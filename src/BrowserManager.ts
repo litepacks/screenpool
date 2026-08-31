@@ -1,4 +1,4 @@
-import puppeteer, { type Browser } from 'puppeteer-core';
+import type { Browser } from 'puppeteer-core';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import type { ResolvedScreenPoolConfig } from './types.js';
@@ -7,12 +7,14 @@ import { buildLaunchArgs } from './utils/buildLaunchArgs.js';
 import { getBrowserMemoryMb } from './utils/processMemory.js';
 import { BrowserCrashedError } from './errors.js';
 import { acquireSharedBrowser, touchSharedDaemon } from './utils/sharedDaemon.js';
+import { createBrowserProvider, type BrowserProvider } from './browser/index.js';
 
 export type BrowserDisconnectHandler = () => void;
 
 /** Manages a Chromium browser instance (shared daemon or local dedicated process). */
 export class BrowserManager {
   private browser: Browser | null = null;
+  private provider: BrowserProvider;
   private executablePath: string | null = null;
   private disconnectHandler: BrowserDisconnectHandler | null = null;
   private isRemote = false;
@@ -21,7 +23,14 @@ export class BrowserManager {
   private exitHook?: () => void;
   private isIntentionalClose = false;
 
-  constructor(private readonly config: ResolvedScreenPoolConfig) {}
+  constructor(private readonly config: ResolvedScreenPoolConfig) {
+    this.provider = createBrowserProvider(this.config);
+  }
+
+  /** Get active browser provider instance. */
+  getProvider(): BrowserProvider {
+    return this.provider;
+  }
 
   /** Launch the browser process or connect to existing shared daemon. */
   async launch(): Promise<Browser> {
@@ -37,7 +46,7 @@ export class BrowserManager {
       this.isRemote = true;
       this.isShared = false;
     } else if (this.config.browserWSEndpoint || this.config.browserURL) {
-      this.browser = await puppeteer.connect({
+      this.browser = await this.provider.connect({
         browserWSEndpoint: this.config.browserWSEndpoint,
         browserURL: this.config.browserURL,
         defaultViewport: null,
@@ -46,7 +55,7 @@ export class BrowserManager {
       this.isShared = false;
     } else if (this.config.shared) {
       const { wsEndpoint } = await acquireSharedBrowser(this.config);
-      this.browser = await puppeteer.connect({
+      this.browser = await this.provider.connect({
         browserWSEndpoint: wsEndpoint,
         defaultViewport: null,
       });
@@ -56,7 +65,7 @@ export class BrowserManager {
       this.executablePath = await resolveBrowserExecutable(this.config);
       const args = buildLaunchArgs(this.config);
 
-      this.browser = await puppeteer.launch({
+      this.browser = await this.provider.launch({
         executablePath: this.executablePath,
         headless: this.config.devtools ? false : this.config.headless,
         devtools: this.config.devtools,
