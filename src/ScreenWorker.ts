@@ -19,7 +19,7 @@ import { renderPdf } from './renderers/PdfRenderer.js';
 import { renderHtmlToImage } from './renderers/HtmlToImageRenderer.js';
 import { renderHtmlToPdf } from './renderers/HtmlToPdfRenderer.js';
 import { renderExtract } from './renderers/ExtractRenderer.js';
-import { resetPageState } from './renderers/PageSetup.js';
+import { resetPageState, createCleanDirtyState, type PageDirtyState } from './renderers/PageSetup.js';
 
 import { resolveDiagnosticsOptions } from './diagnostics/presets.js';
 import { DiagnosticsCollectorImpl, type DiagnosticsCollector } from './diagnostics/collector.js';
@@ -29,6 +29,7 @@ export class ScreenWorker {
   private page: Page | null = null;
   private state: WorkerState = 'idle';
   private jobsCompleted = 0;
+  private dirtyState: PageDirtyState = createCleanDirtyState();
 
   constructor(
     readonly id: number,
@@ -72,6 +73,7 @@ export class ScreenWorker {
     this.page = await this.context.newPage();
     this.state = 'idle';
     this.jobsCompleted = 0;
+    this.dirtyState = createCleanDirtyState();
   }
 
   /** Execute a render job with timeout. */
@@ -118,7 +120,7 @@ export class ScreenWorker {
       ) {
         await this.recycle();
       } else {
-        await resetPageState(this.page, this.context, this.config.defaultViewport);
+        await resetPageState(this.page, this.context, this.config.defaultViewport, this.dirtyState);
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
@@ -145,7 +147,7 @@ export class ScreenWorker {
       } else {
         job.reject(err);
         if (this.page && this.context) {
-          await resetPageState(this.page, this.context, this.config.defaultViewport).catch(
+          await resetPageState(this.page, this.context, this.config.defaultViewport, this.dirtyState).catch(
             () => undefined,
           );
         }
@@ -167,15 +169,15 @@ export class ScreenWorker {
 
     switch (job.type as JobType) {
       case 'screenshot':
-        return renderScreenshot(this.page, job.options as ScreenshotOptions, job.id, this.config);
+        return renderScreenshot(this.page, job.options as ScreenshotOptions, job.id, this.config, this.dirtyState);
       case 'pdf':
-        return renderPdf(this.page, job.options as PdfOptions, job.id, this.config);
+        return renderPdf(this.page, job.options as PdfOptions, job.id, this.config, this.dirtyState);
       case 'htmlToImage':
-        return renderHtmlToImage(this.page, job.options as ScreenshotOptions, job.id, this.config);
+        return renderHtmlToImage(this.page, job.options as ScreenshotOptions, job.id, this.config, this.dirtyState);
       case 'htmlToPdf':
-        return renderHtmlToPdf(this.page, job.options as PdfOptions, job.id, this.config);
+        return renderHtmlToPdf(this.page, job.options as PdfOptions, job.id, this.config, this.dirtyState);
       case 'extract':
-        return renderExtract(this.page, job.options as ExtractOptions, job.id, this.config);
+        return renderExtract(this.page, job.options as ExtractOptions, job.id, this.config, this.dirtyState);
       default:
         throw new NavigationError(`Unknown job type: ${job.type}`);
     }

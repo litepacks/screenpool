@@ -1,6 +1,6 @@
 import type { Page, PDFOptions } from 'puppeteer-core';
 import type { RenderResult, ResolvedScreenPoolConfig, PdfOptions } from '../types.js';
-import { setupPage } from './PageSetup.js';
+import { setupPage, type PageDirtyState } from './PageSetup.js';
 
 /** Render a PDF from URL or HTML. */
 export async function renderPdf(
@@ -8,9 +8,10 @@ export async function renderPdf(
   options: PdfOptions,
   jobId: string,
   config: ResolvedScreenPoolConfig,
+  dirtyState?: PageDirtyState,
 ): Promise<RenderResult> {
   const start = Date.now();
-  await setupPage(page, options, config);
+  await setupPage(page, options, config, dirtyState);
 
   const pdfSettings = options.pdf ?? {};
   const pdfOptions: PDFOptions = {

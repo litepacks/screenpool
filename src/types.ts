@@ -291,6 +291,16 @@ export const DEFAULT_CHROMIUM_ARGS = [
   '--disk-cache-size=0',
   '--media-cache-size=0',
   '--aggressive-cache-discard',
+  '--disable-background-timer-throttling',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-renderer-backgrounding',
+  '--disable-ipc-flooding-protection',
+  '--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints,ProcessPerSiteUpToLimit',
+  '--disable-breakpad',
+  '--disable-component-extensions-with-background-pages',
+  '--disable-domain-reliability',
+  '--run-all-compositor-stages-before-draw',
+  '--font-render-hinting=none',
 ] as const;
 
 export const DEFAULT_POOL_SIZE = 4;

@@ -14,14 +14,14 @@ export class WorkerPool {
     private readonly onWorkerRestarted?: (workerId: number) => void,
   ) {}
 
-  /** Initialize all workers. */
+  /** Initialize all workers in parallel. */
   async init(): Promise<void> {
-    this.workers = [];
-    for (let i = 0; i < this.config.poolSize; i++) {
-      const worker = new ScreenWorker(i, this.browser, this.config);
-      await worker.init();
-      this.workers.push(worker);
-    }
+    const workers = Array.from(
+      { length: this.config.poolSize },
+      (_, i) => new ScreenWorker(i, this.browser, this.config),
+    );
+    await Promise.all(workers.map((w) => w.init()));
+    this.workers = workers;
   }
 
   /** Run a job on an acquired worker (helper). */
@@ -72,12 +72,10 @@ export class WorkerPool {
     await this.init();
   }
 
-  /** Update browser reference for all workers. */
+  /** Update browser reference for all workers in parallel. */
   async setBrowser(browser: Browser): Promise<void> {
     this.browser = browser;
-    for (const worker of this.workers) {
-      await worker.setBrowser(browser);
-    }
+    await Promise.all(this.workers.map((worker) => worker.setBrowser(browser)));
   }
 
   getActiveJobs(): number {
@@ -88,11 +86,9 @@ export class WorkerPool {
     return this.workers.length;
   }
 
-  /** Close all workers. */
+  /** Close all workers in parallel. */
   async close(): Promise<void> {
-    for (const worker of this.workers) {
-      await worker.close();
-    }
+    await Promise.all(this.workers.map((worker) => worker.close()));
     this.workers = [];
     this.activeJobs = 0;
     this.waitQueue.length = 0;

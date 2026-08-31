@@ -28,28 +28,32 @@ export async function extractObservedElements(
       ];
       const selectorString = selectors.join(',');
 
-      function collectElements(
-        root: Document | Element | ShadowRoot,
-        isShadow = false,
-        resultsList: Array<{ el: any; isShadow: boolean }> = [],
-      ): Array<{ el: any; isShadow: boolean }> {
+      const seen = new Set<any>();
+      const items: Array<{ el: any; isShadow: boolean }> = [];
+
+      function collect(root: Document | Element | ShadowRoot, isShadow = false) {
         const matches = root.querySelectorAll(selectorString);
-        for (const el of Array.from(matches)) {
-          if (!resultsList.some((item) => item.el === el)) {
-            resultsList.push({ el, isShadow });
+        for (let i = 0; i < matches.length; i++) {
+          const el = matches[i];
+          if (!seen.has(el)) {
+            seen.add(el);
+            items.push({ el, isShadow });
           }
         }
+
+        // Find nested Shadow DOM roots
         const allNodes = root.querySelectorAll('*');
-        for (const node of Array.from(allNodes)) {
-          const el = node as Element;
-          if (el.shadowRoot) {
-            collectElements(el.shadowRoot, true, resultsList);
+        for (let i = 0; i < allNodes.length; i++) {
+          const el = allNodes[i] as any;
+          if (el && el.shadowRoot && !seen.has(el.shadowRoot)) {
+            seen.add(el.shadowRoot);
+            collect(el.shadowRoot, true);
           }
         }
-        return resultsList;
       }
 
-      const items = collectElements(doc);
+      collect(doc, false);
+
       const results: Array<{
         id: string;
         tag: string;
@@ -68,19 +72,14 @@ export async function extractObservedElements(
       }> = [];
 
       let counter = 0;
+      const scrollX = Math.round(win.scrollX || 0);
+      const scrollY = Math.round(win.scrollY || 0);
+      const innerWidth = win.innerWidth;
+      const innerHeight = win.innerHeight;
 
       for (const item of items) {
         if (counter >= max) break;
-        counter++;
-        const id = `elem_${counter}`;
         const el = item.el;
-
-        // Set stable data attribute on DOM / Shadow DOM element
-        try {
-          el.setAttribute('data-screenpool-id', id);
-        } catch {
-          // ignore setAttribute issues on detached nodes
-        }
 
         const rect = el.getBoundingClientRect();
         const style = win.getComputedStyle(el);
@@ -94,9 +93,9 @@ export async function extractObservedElements(
 
         const inViewport =
           hasCssVisibility &&
-          rect.top < win.innerHeight &&
+          rect.top < innerHeight &&
           rect.bottom > 0 &&
-          rect.left < win.innerWidth &&
+          rect.left < innerWidth &&
           rect.right > 0;
 
         const visible = hasCssVisibility && inViewport;
@@ -118,6 +117,16 @@ export async function extractObservedElements(
 
         const text = el.textContent?.slice(0, 100).trim() || undefined;
 
+        counter++;
+        const id = `elem_${counter}`;
+
+        // Set stable data attribute on DOM / Shadow DOM element
+        try {
+          el.setAttribute('data-screenpool-id', id);
+        } catch {
+          // ignore setAttribute issues on detached nodes
+        }
+
         results.push({
           id,
           tag,
@@ -133,8 +142,8 @@ export async function extractObservedElements(
           enabled,
           editable,
           box: {
-            x: Math.round(rect.left + win.scrollX),
-            y: Math.round(rect.top + win.scrollY),
+            x: Math.round(rect.left + scrollX),
+            y: Math.round(rect.top + scrollY),
             width: Math.round(rect.width),
             height: Math.round(rect.height),
           },
@@ -149,3 +158,4 @@ export async function extractObservedElements(
     return [];
   }
 }
+

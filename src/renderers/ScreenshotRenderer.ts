@@ -1,6 +1,6 @@
 import type { Page } from 'puppeteer-core';
 import type { RenderResult, ResolvedScreenPoolConfig, ScreenshotOptions } from '../types.js';
-import { applyDarkMode, setupPage } from './PageSetup.js';
+import { applyDarkMode, setupPage, type PageDirtyState } from './PageSetup.js';
 
 const CONTENT_TYPES: Record<string, string> = {
   png: 'image/png',
@@ -14,10 +14,11 @@ export async function renderScreenshot(
   options: ScreenshotOptions,
   jobId: string,
   config: ResolvedScreenPoolConfig,
+  dirtyState?: PageDirtyState,
 ): Promise<RenderResult> {
   const start = Date.now();
-  await setupPage(page, options, config);
-  await applyDarkMode(page, options.darkMode);
+  await setupPage(page, options, config, dirtyState);
+  await applyDarkMode(page, options.darkMode, dirtyState);
 
   const format = options.format ?? 'png';
   const shouldExtractHtml = options.includeElementHtml ?? options.includeCode ?? false;

@@ -1,6 +1,6 @@
 import type { Page } from 'puppeteer-core';
 import type { ExtractOptions, RenderResult, ResolvedScreenPoolConfig } from '../types.js';
-import { setupPage } from './PageSetup.js';
+import { setupPage, type PageDirtyState } from './PageSetup.js';
 import { parse, execute } from 'pipsel';
 
 /** Extract structured data using Pipsel DSL from URL or HTML. */
@@ -9,9 +9,10 @@ export async function renderExtract(
   options: ExtractOptions,
   jobId: string,
   config: ResolvedScreenPoolConfig,
+  dirtyState?: PageDirtyState,
 ): Promise<RenderResult> {
   const start = Date.now();
-  await setupPage(page, options, config);
+  await setupPage(page, options, config, dirtyState);
 
   const html = await page.content();
   const pageUrl = page.url();
