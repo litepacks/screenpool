@@ -39,6 +39,30 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
             </body>
           </html>
         `);
+      } else if (req.url === '/search') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>Search Test Page</title></head>
+            <body>
+              <button id="search-btn" role="button" name="Search">Search</button>
+              <form id="search-form" action="/search-results" method="GET">
+                <input type="text" id="textbox" role="textbox" name="q" placeholder="Search..." />
+              </form>
+              <script>
+                document.getElementById('textbox').addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter') {
+                    window.location.href = '/search-results?q=' + encodeURIComponent(e.target.value);
+                  }
+                });
+              </script>
+            </body>
+          </html>
+        `);
+      } else if (req.url?.startsWith('/search-results')) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<!DOCTYPE html><html><head><title>Search Results</title></head><body><h1>Search Results for Fetch</h1></body></html>');
       } else if (req.url === '/redirect-1') {
         res.writeHead(302, { Location: '/redirect-2' });
         res.end();
@@ -134,13 +158,13 @@ describe.skipIf(!hasChromium())('Screenpool Video Recorder Regression Tests (Sce
     expect(existsSync(videoArt!.path)).toBe(true);
   }, 30000);
 
-  // Scenario B: Full page navigation (Live MDN search flow simulation / live test)
+  // Scenario B: Full page navigation (Search flow simulation)
   it('Scenario B: performs full page navigation flow with monotonic timestamps and final URL match', async () => {
     const config = mcpServer.currentConfig;
     const runRes = await handleRun(
       pool,
       {
-        url: 'https://developer.mozilla.org/en-US/',
+        url: `${baseUrl}/search`,
         policy: { targets: { css: true } },
         actions: [
           {
