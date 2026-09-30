@@ -716,7 +716,51 @@ async function main(): Promise<void> {
         }
       }
     )
-    .demandCommand(1, 'You must specify a command (setup, clean, screenshot, pdf, extract, server, daemon, ui, or mcp)');
+    .command(
+      ['skill [subcommand]', 'install-skill'],
+      'Install and manage Screenpool agent skills for AI assistants (Antigravity, Cursor, Claude)',
+      (y) => y
+        .positional('subcommand', {
+          choices: ['install', 'show', 'path'],
+          default: 'install',
+          describe: 'Action to perform: install, show, or path',
+        })
+        .option('global', {
+          alias: 'g',
+          type: 'boolean',
+          describe: 'Install skill to global agent config directory (~/.gemini/config/skills/screenpool/SKILL.md)',
+        })
+        .option('workspace', {
+          alias: 'w',
+          type: 'boolean',
+          describe: 'Install skill to workspace (.agents/skills/screenpool/SKILL.md)',
+        })
+        .option('cursor', {
+          type: 'boolean',
+          describe: 'Install to Cursor rules (.cursor/rules/screenpool.md)',
+        })
+        .option('claude', {
+          type: 'boolean',
+          describe: 'Install to Claude skills (.claude/skills/screenpool/SKILL.md)',
+        })
+        .option('all', {
+          type: 'boolean',
+          describe: 'Install to all supported environments',
+        })
+        .option('target', {
+          type: 'string',
+          describe: 'Custom destination path or directory',
+        }),
+      async (argv) => {
+        try {
+          const { runSkill } = await import('./utils/skillManager.js');
+          await runSkill(argv);
+        } catch (error) {
+          handleError(error);
+        }
+      }
+    )
+    .demandCommand(1, 'You must specify a command (setup, clean, screenshot, pdf, extract, server, daemon, ui, mcp, or skill)');
 
   await parser.parse();
 }

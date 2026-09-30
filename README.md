@@ -149,6 +149,11 @@ screenpool screenshot https://example.com --out shot.webp --width 1200 --height 
 screenpool pdf https://example.com --output-dir ./output --out page.pdf
 screenpool server --port 3000 --pool-size 4 --browser chrome@stable
 screenpool run flow.json
+
+# Agent Skill Installation (Antigravity, Gemini, Cursor, Claude)
+screenpool skill install --global     # Installs to ~/.gemini/config/skills/screenpool/SKILL.md
+screenpool skill install --workspace  # Installs to .agents/skills/screenpool/SKILL.md
+screenpool skill install --all        # Installs across all AI agent environments
 ```
 
 ## Browser Action Architecture & Session Management
@@ -375,6 +380,7 @@ screenpool-mcp
 --log-level <level>                Stderr logging level (silent|error|warn|info|debug)
 --config <path>                    Path to custom configuration file
 --allow-private-network            Allow navigation to localhost & private network IPs (SSRF bypass)
+--stealth                          Enable anti-bot stealth evasions across all MCP browser workers
 ```
 
 ### Client Configuration Examples
@@ -390,6 +396,45 @@ screenpool-mcp
         "-y",
         "screenpool",
         "mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Stealth Mode Configuration (Anti-Bot Detection & Evasions)
+
+Enable anti-bot evasions across all MCP tools via `--stealth` flag or `SCREENPOOL_STEALTH=true` env var:
+
+```json
+{
+  "mcpServers": {
+    "screenpool": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "screenpool",
+        "mcp",
+        "--stealth"
+      ],
+      "env": {
+        "SCREENPOOL_STEALTH": "true"
+      }
+    }
+  }
+}
+```
+
+Or via shell wrapper (`/bin/zsh -ilc`):
+
+```json
+{
+  "mcpServers": {
+    "screenpool": {
+      "command": "/bin/zsh",
+      "args": [
+        "-ilc",
+        "npx -y screenpool mcp --stealth"
       ]
     }
   }

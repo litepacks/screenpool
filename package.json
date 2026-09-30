@@ -24,13 +24,18 @@
     "screenpool-mcp": "dist/mcp-cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
+    "skill:install": "node dist/cli.js skill install",
+    "skill:install:global": "node dist/cli.js skill install --global",
+    "skill:install:workspace": "node dist/cli.js skill install --workspace",
+    "skill:install:all": "node dist/cli.js skill install --all",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
