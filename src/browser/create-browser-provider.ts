@@ -8,8 +8,8 @@ import { PuppeteerExtraProvider } from './providers/puppeteer-extra.js';
  * - When stealth is disabled: returns PuppeteerCoreProvider (zero overhead)
  * - When stealth is enabled: returns PuppeteerExtraProvider (isolated instance)
  */
-export function createBrowserProvider(config: ResolvedScreenPoolConfig): BrowserProvider {
-  if (config.stealth?.enabled) {
+export function createBrowserProvider(config?: ResolvedScreenPoolConfig | null): BrowserProvider {
+  if (config?.stealth?.enabled) {
     return new PuppeteerExtraProvider(config.stealth);
   }
   return new PuppeteerCoreProvider();

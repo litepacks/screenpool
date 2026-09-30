@@ -411,7 +411,7 @@ describe.skipIf(!hasChromium())('MCP Server Integration Tests', () => {
     expect(actionsHelp.targets).toBeDefined();
 
     const caps = await handleCapabilities(mcpServer.currentConfig);
-    expect(caps.tools.length).toBe(16);
+    expect(caps.tools.length).toBe(21);
     expect(caps.sessions.persistentProfileSupported).toBe(true);
   });
 });

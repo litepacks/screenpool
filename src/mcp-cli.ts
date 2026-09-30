@@ -4,7 +4,30 @@ import { hideBin } from 'yargs/helpers';
 import { ScreenpoolMcpServer } from './mcp/server.js';
 import type { LogLevel } from './mcp/logger.js';
 
+const MCPONCE_COMMANDS = new Set([
+  'call',
+  'tools',
+  'list-tools',
+  'info',
+  'analytics',
+  'logs',
+  'inspect',
+  'start',
+  'stop',
+  'restart',
+  'install',
+  'uninstall',
+]);
+
 export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise<void> {
+  const first = args[0]?.toLowerCase();
+  if (first && MCPONCE_COMMANDS.has(first)) {
+    const server = new ScreenpoolMcpServer();
+    await server.init();
+    await server.run();
+    return;
+  }
+
   const argv = await yargs(args)
     .scriptName('screenpool-mcp')
     .usage('$0 [options]', 'Start the Screenpool Model Context Protocol (MCP) server over stdio')
@@ -41,6 +64,7 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       describe: 'Directory for saving output screenshots/PDFs (default: .screenpool/artifacts)',
     })
     .option('log-level', {
+      alias: 'l',
       type: 'string',
       choices: ['silent', 'error', 'warn', 'info', 'debug'],
       describe: 'Stderr logging level (default: info)',
@@ -75,6 +99,15 @@ export async function runMcpCli(args: string[] = hideBin(process.argv)): Promise
       type: 'boolean',
       describe: 'Enable stealth mode with evasions in MCP browser pool',
     })
+    .epilogue(
+      'mcponce Subcommands:\n' +
+      '  screenpool-mcp call <tool> [args]   Execute tool directly\n' +
+      '  screenpool-mcp tools                List all registered tools\n' +
+      '  screenpool-mcp inspect              Start interactive Web Inspector playground\n' +
+      '  screenpool-mcp info                 Show server runtime and health status\n' +
+      '  screenpool-mcp analytics            Show tool execution telemetry\n' +
+      '  screenpool-mcp install [client]     Auto-install in Claude Desktop or Cursor'
+    )
     .help()
     .alias('help', 'h')
     .parse();

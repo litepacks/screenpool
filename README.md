@@ -751,20 +751,6 @@ screenpool extract https://example.com --rules 'title: "h1" | text | trim'
 screenpool extract https://example.com --rules-file ./rules.psl --out result.json
 ```
 
-## Docker
-
-```bash
-docker compose up -d --build
-curl http://localhost:3000/health
-```
-
-One-off screenshot:
-
-```bash
-docker run --rm -v screenpool-out:/data -e SCREENPOOL_OUTPUT_DIR=/data screenpool:latest \
-  screenshot https://example.com --out shot.webp
-```
-
 ## Security (SSRF protection)
 
 By default blocks: `file://`, localhost, private IPs, link-local, metadata IPs.

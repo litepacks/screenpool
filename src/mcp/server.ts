@@ -1,35 +1,69 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createMcpServer as createMcponceServer, type McpApp } from 'mcponce';
 import { ScreenPool } from '../ScreenPool.js';
 import { resolveMcpConfig, type ScreenpoolMcpConfig } from './config.js';
 import { McpLogger } from './logger.js';
-import { registerMcpTools } from './tools.js';
+import { registerMcpTools, type ScreenpoolMcpContext } from './tools.js';
+import { handleCapabilities } from './handlers.js';
 import { VERSION } from '../version.js';
 
 export interface ScreenpoolMcpServerOptions {
   config?: Partial<ScreenpoolMcpConfig>;
   configFilePath?: string;
   screenPool?: ScreenPool;
+  host?: string;
+  port?: number;
+  coerceInputs?: boolean;
 }
+
+const SCREENPOOL_AGENT_GUIDE = `# Screenpool Agent Guide & Tool Reference
+
+Screenpool is a high-performance Chromium browser pool and stateful automation manager for AI agents.
+
+## 1. Action Targeting Specification (\`Target\` Syntax)
+All interactive actions (\`click\`, \`fill\`, \`hover\`, etc.) require a \`target\` descriptor:
+- \`{"by": "css", "value": "#submit-btn"}\` (Standard CSS selector)
+- \`{"by": "text", "value": "Sign in"}\` (Visible text)
+- \`{"by": "role", "role": "button", "name": "Save"}\` (ARIA role)
+- \`{"by": "label", "value": "Username"}\` (Associated label)
+- \`{"by": "test-id", "value": "login-submit"}\` (data-testid)
+- \`{"by": "element-id", "value": "e_3"}\` (Interactive ID from observe)
+- \`{"by": "point", "x": 350, "y": 420}\` (Viewport coordinates)
+
+⚠️ Critical Rule: "by": "id" is NOT supported! Use CSS selector: {"by": "css", "value": "#my-id"}.
+
+## 2. Core Actions
+- **fill**: Automatically focuses element, updates React/Vue/Svelte form value trackers, dispatches bubbling change/input events.
+- **click**: Click, double-click, right-click, popup handling with expect.page.
+- **type & press**: Character typing and key presses (Enter, Escape, Tab, etc.).
+- **wait**: Milliseconds duration or selector condition.
+- **select**: Native HTML <select> dropdowns.
+- **scroll**: Viewport coordinate and delta scrolling.
+
+## 3. Stateful Multi-Step Workflows
+1. \`screenpool_session_create\` -> Returns \`sessionId\`.
+2. \`screenpool_observe\` -> Inspect page elements (\`e_1\`, \`e_2\`) and layout.
+3. \`screenpool_act\` -> Execute sequential actions on session.
+4. \`screenpool_session_close\` -> Clean up isolated session pages.
+`;
 
 export class ScreenpoolMcpServer {
   private readonly config: ScreenpoolMcpConfig & ReturnType<typeof resolveMcpConfig>;
   private readonly logger: McpLogger;
-  private readonly mcpServer: McpServer;
+  private readonly mcpApp: McpApp<ScreenpoolMcpContext>;
   private pool: ScreenPool;
   private isOwnPool = false;
   private isStarted = false;
   private isClosing = false;
-  private transport: StdioServerTransport | null = null;
   private removeSignalListeners?: () => void;
   private poolStartPromise: Promise<void> | null = null;
 
   constructor(options: ScreenpoolMcpServerOptions = {}) {
-    this.config = resolveMcpConfig(options.config, options.configFilePath);
+    const opts = options || {};
+    this.config = resolveMcpConfig(opts.config, opts.configFilePath);
     this.logger = new McpLogger(this.config.logLevel);
 
-    if (options.screenPool) {
-      this.pool = options.screenPool;
+    if (opts.screenPool) {
+      this.pool = opts.screenPool;
       this.isOwnPool = false;
     } else {
       this.pool = new ScreenPool({
@@ -49,9 +83,21 @@ export class ScreenpoolMcpServer {
       this.isOwnPool = true;
     }
 
-    this.mcpServer = new McpServer({
+    const ctx: ScreenpoolMcpContext = {
+      pool: this.pool,
+      config: this.config,
+      logger: this.logger,
+      ensureStarted: () => this.ensurePoolStarted(),
+    };
+
+    this.mcpApp = createMcponceServer<ScreenpoolMcpContext>({
       name: 'screenpool',
       version: VERSION,
+      host: opts.host || '127.0.0.1',
+      port: opts.port || 0,
+      context: () => ctx,
+      coerceInputs: opts.coerceInputs ?? true,
+      toolTimeoutMs: this.config.timeout || 60000,
     });
   }
 
@@ -73,28 +119,67 @@ export class ScreenpoolMcpServer {
     await this.poolStartPromise;
   }
 
-  /** Initialize ScreenPool (if owned) and register MCP tools. */
+  /** Initialize ScreenPool (if owned) and register MCP tools and resources. */
   async init(): Promise<void> {
     if (this.isStarted) return;
-    registerMcpTools(this.mcpServer, this.pool, this.config, this.logger, () => this.ensurePoolStarted());
+    registerMcpTools(this.mcpApp, this.pool, this.config, this.logger, () => this.ensurePoolStarted());
+    this.registerResources();
     this.isStarted = true;
+  }
+
+  private registerResources(): void {
+    this.mcpApp.resource({
+      uri: 'screenpool://guide',
+      name: 'Screenpool Agent Guide & Tool Reference',
+      mimeType: 'text/markdown',
+      description: 'Comprehensive guide for AI agents executing browser automation, targeting selectors, actions, DevTools, and state persistence with Screenpool.',
+      handler: () => SCREENPOOL_AGENT_GUIDE,
+    });
+
+    this.mcpApp.resource({
+      uri: 'screenpool://capabilities',
+      name: 'Screenpool Capabilities & Features',
+      mimeType: 'application/json',
+      description: 'Supported features, formats, and available tool names for this Screenpool MCP server version.',
+      handler: async () => {
+        const caps = await handleCapabilities(this.config);
+        return JSON.stringify(caps, null, 2);
+      },
+    });
   }
 
   /** Connect stdio transport and start serving MCP requests. */
   async startStdio(): Promise<void> {
     await this.init();
-
-    this.logger.info('Starting Screenpool MCP Server via Stdio transport...');
-    this.transport = new StdioServerTransport();
-
+    this.logger.info('Starting Screenpool MCP Server via mcponce stdio bridge...');
     this.setupSignalHandlers();
-
-    await this.mcpServer.connect(this.transport);
-    this.logger.info('Screenpool MCP Server is ready and listening on stdio.');
-    // Pool is started lazily on the first tool invocation to conserve CPU/RAM.
+    await this.mcpApp.run();
   }
 
-  /** Graceful shutdown. Safely closes server and browser pool. */
+  /** Run executable entrypoint (CLI commands or stdio bridge). */
+  async run(): Promise<void> {
+    await this.init();
+    await this.mcpApp.run();
+  }
+
+  /** Start HTTP/SSE server programmatically. */
+  async start(options?: any): Promise<any> {
+    await this.init();
+    return await this.mcpApp.start(options);
+  }
+
+  /** Stop server programmatically. */
+  async stop(options?: any): Promise<void> {
+    await this.mcpApp.stop(options);
+  }
+
+  /** Programmatic tool invocation. */
+  async callTool(name: string, args: Record<string, any> = {}, options?: any): Promise<any> {
+    await this.init();
+    return await this.mcpApp.callTool(name, args, options);
+  }
+
+  /** Graceful shutdown. Safely closes mcponce server and browser pool. */
   async close(): Promise<void> {
     if (this.isClosing) return;
     this.isClosing = true;
@@ -107,9 +192,9 @@ export class ScreenpoolMcpServer {
     }
 
     try {
-      await this.mcpServer.close();
+      await this.mcpApp.stop();
     } catch (err: any) {
-      this.logger.debug(`Error closing MCP server: ${err?.message || err}`);
+      this.logger.debug(`Error stopping mcponce server: ${err?.message || err}`);
     }
 
     if (this.isOwnPool) {
@@ -163,6 +248,10 @@ export class ScreenpoolMcpServer {
     };
   }
 
+  get app(): McpApp<ScreenpoolMcpContext> {
+    return this.mcpApp;
+  }
+
   get poolInstance(): ScreenPool {
     return this.pool;
   }
@@ -174,9 +263,10 @@ export class ScreenpoolMcpServer {
 
 /** Programmatic factory function. */
 export async function createScreenpoolMcpServer(
-  options: ScreenpoolMcpServerOptions = {},
+  options?: ScreenpoolMcpServerOptions | null,
 ): Promise<ScreenpoolMcpServer> {
-  const server = new ScreenpoolMcpServer(options);
+  const opts = options || {};
+  const server = new ScreenpoolMcpServer(opts);
   await server.init();
   return server;
 }

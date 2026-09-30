@@ -33,6 +33,11 @@ const BROWSER_TYPE_MAP: Record<BrowserType, string> = {
 
 /** Parse shorthand like "chrome@stable", "chrome", or "chromium". */
 export function parseBrowserShorthand(shorthand: string): BrowserInstallConfig {
+  if (typeof shorthand !== 'string') {
+    throw new InvalidRenderInputError(
+      `Invalid browser shorthand: ${String(shorthand)}. Expected string format: chrome@stable, chrome, or chromium`,
+    );
+  }
   if (shorthand === 'chrome' || shorthand === 'chromium' || shorthand === 'chrome-headless-shell') {
     return { type: shorthand as BrowserType, channel: 'stable' };
   }
@@ -54,16 +59,17 @@ export function parseBrowserShorthand(shorthand: string): BrowserInstallConfig {
 }
 
 function normalizeBrowserConfig(
-  browser: BrowserInstallConfig | BrowserShorthand,
+  browser?: BrowserInstallConfig | BrowserShorthand | null,
 ): BrowserInstallConfig {
   if (typeof browser === 'string') {
     return parseBrowserShorthand(browser);
   }
+  const b = browser || {};
   return {
-    type: browser.type ?? 'chrome',
-    channel: browser.channel ?? 'stable',
-    buildId: browser.buildId,
-    cacheDir: browser.cacheDir,
+    type: b.type ?? 'chrome',
+    channel: b.channel ?? 'stable',
+    buildId: b.buildId,
+    cacheDir: b.cacheDir,
   };
 }
 
@@ -351,24 +357,25 @@ async function resolveFromEnvOrSystem(): Promise<string | undefined> {
  * Resolve Chromium executable path from config, env, or system.
  * Priority: executablePath > browser cache > env > system paths > auto-install fallback
  */
-export async function resolveBrowserExecutable(config: ScreenPoolConfig): Promise<string> {
-  if (config.executablePath && config.browser) {
+export async function resolveBrowserExecutable(config?: ScreenPoolConfig | null): Promise<string> {
+  const conf = config || {};
+  if (conf.executablePath && conf.browser) {
     throw new InvalidRenderInputError('Provide either executablePath or browser, not both.');
   }
 
-  if (config.executablePath) {
-    if (!(await fileExists(config.executablePath))) {
-      throw new BrowserNotFoundError(`Executable not found: ${config.executablePath}`);
+  if (conf.executablePath) {
+    if (!(await fileExists(conf.executablePath))) {
+      throw new BrowserNotFoundError(`Executable not found: ${conf.executablePath}`);
     }
-    return config.executablePath;
+    return conf.executablePath;
   }
 
-  if (config.browser) {
+  if (conf.browser) {
     try {
-      return await resolveFromBrowsersPackage(config);
+      return await resolveFromBrowsersPackage(conf);
     } catch (err) {
       // If specified browser fails to resolve, attempt auto-setup
-      const setupRes = await setupBrowser({ browser: config.browser });
+      const setupRes = await setupBrowser({ browser: conf.browser });
       return setupRes.executablePath;
     }
   }
@@ -412,9 +419,10 @@ export interface SetupBrowserResult {
  * Download and setup Chromium browser binary into cache directory (~/.screenpool/browser by default).
  */
 export async function setupBrowser(
-  options: SetupBrowserOptions = {},
+  options?: SetupBrowserOptions | null,
 ): Promise<SetupBrowserResult> {
-  const browserConfig = normalizeBrowserConfig(options.browser ?? 'chrome@stable');
+  const opts = options || {};
+  const browserConfig = normalizeBrowserConfig(opts.browser ?? 'chrome@stable');
   const type = browserConfig.type ?? 'chrome';
   const channel = browserConfig.channel ?? 'stable';
 
@@ -450,9 +458,9 @@ export async function setupBrowser(
     throw new BrowserResolveError('Could not detect browser platform.');
   }
 
-  const cacheDir = options.cacheDir ?? browserConfig.cacheDir ?? getDefaultCacheDir();
+  const cacheDir = opts.cacheDir ?? browserConfig.cacheDir ?? getDefaultCacheDir();
 
-  if (!options.force) {
+  if (!opts.force) {
     try {
       const installed = await getInstalledBrowsers({ cacheDir });
       const matches = installed.filter(
@@ -518,7 +526,7 @@ export async function setupBrowser(
       buildId,
       cacheDir,
       platform,
-      downloadProgressCallback: options.onProgress,
+      downloadProgressCallback: opts.onProgress,
     });
   } catch {
     // Clean up potentially corrupted zip archive or folder and retry once
@@ -530,7 +538,7 @@ export async function setupBrowser(
       buildId,
       cacheDir,
       platform,
-      downloadProgressCallback: options.onProgress,
+      downloadProgressCallback: opts.onProgress,
     });
   }
 

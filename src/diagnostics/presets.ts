@@ -29,6 +29,7 @@ export const PRESETS: Record<DiagnosticsPreset, Partial<DiagnosticsOptions>> = {
     slowRequests: true,
     pageState: true,
     performance: true,
+    webVitals: true,
     timeline: true,
     captureOnError: [
       'screenshot',
@@ -55,6 +56,7 @@ export const DEFAULT_DIAGNOSTICS_OPTIONS: Required<
   slowRequests: { thresholdMs: 2000 },
   pageState: true,
   performance: false,
+  webVitals: true,
   timeline: true,
   captureOnError: ['screenshot', 'html', 'page-state'],
   maxConsoleEntries: 500,

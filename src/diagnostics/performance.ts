@@ -1,8 +1,11 @@
 import type { NavigationPerformanceDiagnostic } from './types.js';
 import type { DiagnosticPage } from './page-adapter.js';
+import { captureWebVitals } from './web-vitals.js';
 
 export async function capturePerformance(
   page: DiagnosticPage,
+  includeWebVitals = true,
+  cdpSession?: any,
 ): Promise<NavigationPerformanceDiagnostic | undefined> {
   if (page.isClosed()) return undefined;
 
@@ -74,7 +77,16 @@ export async function capturePerformance(
       return null;
     });
 
-    return perfData ?? undefined;
+    if (!perfData) return undefined;
+
+    if (includeWebVitals) {
+      const vitals = await captureWebVitals(page, cdpSession);
+      if (vitals) {
+        (perfData as any).webVitals = vitals;
+      }
+    }
+
+    return perfData;
   } catch {
     return undefined;
   }

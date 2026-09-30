@@ -10,7 +10,14 @@ import type {
   ScreenshotOptions,
   ExtractOptions,
   ExtractResult,
+  AuditOptions,
+  AuditResult,
+  CoreWebVitalsDiagnostic,
+  ViewportConfig,
 } from './types.js';
+import { PuppeteerDiagnosticPageAdapter } from './diagnostics/page-adapter.js';
+import { capturePerformance } from './diagnostics/performance.js';
+import { computeWebVitalsScore } from './diagnostics/web-vitals.js';
 import { resolveConfig } from './types.js';
 import {
   InvalidRenderInputError,
@@ -209,6 +216,101 @@ export class ScreenPool extends EventEmitter {
       }
 
       return result;
+    } finally {
+      await session.close().catch(() => undefined);
+    }
+  }
+
+  /**
+   * Run a PageSpeed / Core Web Vitals audit on a URL.
+   * Measures LCP, CLS, FCP, TTFB, and CDP metrics with zero external overhead.
+   */
+  async audit(options: AuditOptions): Promise<AuditResult> {
+    if (!this.started) {
+      await this.start();
+    }
+    const start = Date.now();
+    const isMobile = options.device === 'mobile';
+    const viewport: ViewportConfig = options.viewport ?? (isMobile
+      ? { width: 375, height: 667, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+      : { width: 1280, height: 800, isMobile: false, hasTouch: false, deviceScaleFactor: 1 });
+
+    const session = await this.sessions.create();
+
+    try {
+      const page = session.registry.getActive() ?? session.registry.getMain();
+      if (!page) {
+        throw new Error('Failed to acquire page for PageSpeed audit.');
+      }
+
+      await page.rawPage.setViewport({
+        width: viewport.width,
+        height: viewport.height,
+        deviceScaleFactor: viewport.deviceScaleFactor ?? 1,
+        isMobile: viewport.isMobile ?? false,
+        hasTouch: viewport.hasTouch ?? false,
+      });
+
+      if (options.throttling) {
+        const client = await session.createCDPSession();
+        await client.send('Network.emulateNetworkConditions', {
+          offline: false,
+          latency: options.throttling.latencyMs ?? 20,
+          downloadThroughput: options.throttling.downloadKbps ? (options.throttling.downloadKbps * 1024) / 8 : -1,
+          uploadThroughput: options.throttling.uploadKbps ? (options.throttling.uploadKbps * 1024) / 8 : -1,
+        }).catch(() => undefined);
+      }
+
+      const timeout = options.timeout ?? 30_000;
+      const waitUntil = options.waitUntil ?? 'load';
+
+      await session.goto(options.url, { waitUntil, timeoutMs: timeout });
+
+      // Small stabilization wait for layout shifts to settle
+      await new Promise((r) => setTimeout(r, 100));
+
+      const adapter = new PuppeteerDiagnosticPageAdapter(page.rawPage);
+      const cdpClient = await session.createCDPSession().catch(() => undefined);
+      const perf = await capturePerformance(adapter, true, cdpClient);
+
+      const vitals: CoreWebVitalsDiagnostic = perf?.webVitals ?? {
+        cls: 0,
+        clsEntriesCount: 0,
+      };
+
+      const score = computeWebVitalsScore(vitals);
+      const durationMs = Date.now() - start;
+
+      return {
+        url: options.url,
+        durationMs,
+        score,
+        webVitals: vitals,
+        performance: perf,
+        summary: {
+          lcp: {
+            valueMs: vitals.lcpMs,
+            rating: vitals.ratings?.lcp,
+            element: vitals.lcpElement,
+          },
+          cls: {
+            score: vitals.cls,
+            rating: vitals.ratings?.cls,
+          },
+          fcp: {
+            valueMs: vitals.fcpMs,
+            rating: vitals.ratings?.fcp,
+          },
+          ttfb: {
+            valueMs: vitals.ttfbMs,
+            rating: vitals.ratings?.ttfb,
+          },
+          inp: {
+            valueMs: vitals.inpMs,
+            rating: vitals.ratings?.inp,
+          },
+        },
+      };
     } finally {
       await session.close().catch(() => undefined);
     }

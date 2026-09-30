@@ -49,24 +49,35 @@ export class Sanitizer {
   private sensitiveJsonKeys: Set<string>;
 
   constructor(config?: DiagnosticsRedactConfig) {
-    this.sensitiveHeaders = new Set(DEFAULT_SENSITIVE_HEADERS);
-    this.sensitiveQueryParams = new Set(DEFAULT_SENSITIVE_QUERY_PARAMS);
-    this.sensitiveJsonKeys = new Set(DEFAULT_SENSITIVE_JSON_KEYS);
+    const hasCustomHeaders = Boolean(config?.headers?.length);
+    const hasCustomQueryParams = Boolean(config?.queryParams?.length);
+    const hasCustomJsonKeys = Boolean(config?.jsonKeys?.length);
 
-    if (config?.headers) {
-      for (const h of config.headers) {
+    if (hasCustomHeaders) {
+      this.sensitiveHeaders = new Set(DEFAULT_SENSITIVE_HEADERS);
+      for (const h of config!.headers!) {
         this.sensitiveHeaders.add(h.toLowerCase());
       }
+    } else {
+      this.sensitiveHeaders = DEFAULT_SENSITIVE_HEADERS;
     }
-    if (config?.queryParams) {
-      for (const q of config.queryParams) {
+
+    if (hasCustomQueryParams) {
+      this.sensitiveQueryParams = new Set(DEFAULT_SENSITIVE_QUERY_PARAMS);
+      for (const q of config!.queryParams!) {
         this.sensitiveQueryParams.add(q.toLowerCase());
       }
+    } else {
+      this.sensitiveQueryParams = DEFAULT_SENSITIVE_QUERY_PARAMS;
     }
-    if (config?.jsonKeys) {
-      for (const k of config.jsonKeys) {
+
+    if (hasCustomJsonKeys) {
+      this.sensitiveJsonKeys = new Set(DEFAULT_SENSITIVE_JSON_KEYS);
+      for (const k of config!.jsonKeys!) {
         this.sensitiveJsonKeys.add(k.toLowerCase());
       }
+    } else {
+      this.sensitiveJsonKeys = DEFAULT_SENSITIVE_JSON_KEYS;
     }
   }
 
@@ -96,7 +107,7 @@ export class Sanitizer {
       }
 
       // Redact query params
-      for (const paramKey of Array.from(url.searchParams.keys())) {
+      for (const paramKey of url.searchParams.keys()) {
         if (this.sensitiveQueryParams.has(paramKey.toLowerCase())) {
           url.searchParams.set(paramKey, '[REDACTED]');
         }
@@ -107,7 +118,7 @@ export class Sanitizer {
       // Fallback for relative or malformed URLs: regex pattern replace
       return urlString.replace(
         /([?&])([a-zA-Z0-9_-]+)=([^&]*)/g,
-        (match, prefix, key, value) => {
+        (match, prefix, key) => {
           if (this.sensitiveQueryParams.has(key.toLowerCase())) {
             return `${prefix}${key}=[REDACTED]`;
           }
@@ -120,6 +131,11 @@ export class Sanitizer {
   /** Sanitize text content (URLs inside text, authorization tokens, etc.) */
   sanitizeText(text?: string): string {
     if (!text) return '';
+    // Skip regex evaluation if text contains neither URLs nor auth tokens
+    if (!text.includes('http') && !text.includes('earer') && !text.includes('EARER')) {
+      return text;
+    }
+
     let result = text;
 
     // Mask URLs embedded in text
@@ -142,6 +158,16 @@ export class Sanitizer {
     }
 
     if (typeof value === 'object') {
+      // Fast path: pass binary buffers and built-in non-plain objects through unmodified
+      if (
+        Buffer.isBuffer(value) ||
+        ArrayBuffer.isView(value) ||
+        value instanceof Date ||
+        value instanceof RegExp
+      ) {
+        return value;
+      }
+
       if (Array.isArray(value)) {
         return value.map((item) => this.sanitizeValue(item)) as unknown as T;
       }

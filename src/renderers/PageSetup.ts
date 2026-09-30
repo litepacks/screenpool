@@ -107,19 +107,34 @@ export const RESOURCE_BLOCKING_PATTERNS: Record<BlockResourceType, string[]> = {
   other: [],
 };
 
+async function getPageCdpClient(page: Page) {
+  try {
+    const getClient = (page as any)._client;
+    const client = typeof getClient === 'function' ? getClient.call(page) : getClient;
+    if (client) return client;
+    if (typeof (page as any).createCDPSession === 'function') {
+      return await (page as any).createCDPSession();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 /** Reset page to clean state after a job. Selectively resets only dirtied state for high throughput. */
 export async function resetPageState(
   page: Page,
   context: BrowserContext,
-  defaultViewport: ViewportConfig,
+  defaultViewport?: ViewportConfig,
   dirtyState?: PageDirtyState,
 ): Promise<void> {
+  if (page.isClosed()) return;
+
   const isFullReset = !dirtyState;
 
   if (isFullReset || dirtyState.hasBlockedResources) {
     try {
-      const getClient = (page as any)._client;
-      const client = typeof getClient === 'function' ? getClient.call(page) : getClient;
+      const client = await getPageCdpClient(page);
       if (client) {
         await client.send('Network.setBlockedURLs', { urls: [] });
       }
@@ -183,13 +198,15 @@ export async function resetPageState(
 
   if (isFullReset || dirtyState.hasCustomViewport) {
     try {
-      await page.setViewport({
-        width: defaultViewport.width,
-        height: defaultViewport.height,
-        deviceScaleFactor: defaultViewport.deviceScaleFactor ?? 1,
-        isMobile: defaultViewport.isMobile ?? false,
-        hasTouch: defaultViewport.hasTouch ?? false,
-      });
+      if (defaultViewport) {
+        await page.setViewport({
+          width: defaultViewport.width,
+          height: defaultViewport.height,
+          deviceScaleFactor: defaultViewport.deviceScaleFactor ?? 1,
+          isMobile: defaultViewport.isMobile ?? false,
+          hasTouch: defaultViewport.hasTouch ?? false,
+        });
+      }
     } catch {
       // ignore
     }
@@ -206,8 +223,11 @@ export async function setupPage(
   config: ResolvedScreenPoolConfig,
   dirtyState?: PageDirtyState,
 ): Promise<void> {
-  const targetViewport = options.viewport ?? config.defaultViewport;
-  const isDefault = !options.viewport || isSameViewport(options.viewport, config.defaultViewport);
+  const opts = options || ({} as RenderOptions);
+  const conf = config || ({} as ResolvedScreenPoolConfig);
+  const defaultVp = conf.defaultViewport || { width: 1280, height: 800 };
+  const targetViewport = opts.viewport ?? defaultVp;
+  const isDefault = !opts.viewport || isSameViewport(opts.viewport, defaultVp);
 
   // If a custom viewport is requested, or if the page was dirtied with non-default viewport, apply it
   if (!isDefault || dirtyState?.hasCustomViewport) {
@@ -223,18 +243,18 @@ export async function setupPage(
     }
   }
 
-  if (options.userAgent) {
-    await page.setUserAgent(options.userAgent);
+  if (opts.userAgent) {
+    await page.setUserAgent(opts.userAgent);
     if (dirtyState) dirtyState.hasCustomUserAgent = true;
   }
 
-  if (options.headers) {
-    await page.setExtraHTTPHeaders(options.headers);
+  if (opts.headers) {
+    await page.setExtraHTTPHeaders(opts.headers);
     if (dirtyState) dirtyState.hasExtraHeaders = true;
   }
 
-  if (options.cookies?.length) {
-    const cookies = options.cookies.map((c) => ({
+  if (opts.cookies?.length) {
+    const cookies = opts.cookies.map((c) => ({
       name: c.name,
       value: c.value,
       domain: c.domain,
@@ -244,48 +264,48 @@ export async function setupPage(
     if (dirtyState) dirtyState.hasCookies = true;
   }
 
-  const screenshotOpts = options as ScreenshotOptions;
+  const screenshotOpts = opts as ScreenshotOptions;
   if (screenshotOpts.blockResources?.length) {
     await setupResourceBlocking(page, screenshotOpts.blockResources);
     if (dirtyState) dirtyState.hasBlockedResources = true;
   }
 
-  const waitUntil = WAIT_UNTIL_MAP[options.waitUntil ?? 'load'];
+  const waitUntil = WAIT_UNTIL_MAP[opts.waitUntil ?? 'load'];
   const contentWaitUntil =
     waitUntil === 'networkidle0' || waitUntil === 'networkidle2'
       ? 'load'
       : waitUntil;
 
   try {
-    if (options.url) {
-      await page.goto(options.url, { waitUntil, timeout: 60_000 });
-    } else if (options.html) {
-      await page.setContent(options.html, {
+    if (opts.url) {
+      await page.goto(opts.url, { waitUntil, timeout: 60_000 });
+    } else if (opts.html) {
+      await page.setContent(opts.html, {
         waitUntil: contentWaitUntil,
         timeout: 60_000,
       });
     }
   } catch (error) {
     throw new NavigationError(
-      options.url ? `Failed to navigate to ${options.url}` : 'Failed to set HTML content',
+      opts.url ? `Failed to navigate to ${opts.url}` : 'Failed to set HTML content',
       error,
     );
   }
 
-  if (options.injectCSS) {
-    await page.addStyleTag({ content: options.injectCSS });
+  if (opts.injectCSS) {
+    await page.addStyleTag({ content: opts.injectCSS });
   }
 
-  if (options.injectJS) {
-    await page.evaluate(options.injectJS);
+  if (opts.injectJS) {
+    await page.evaluate(opts.injectJS);
   }
 
-  if (options.waitForSelector) {
-    await page.waitForSelector(options.waitForSelector, { timeout: 30_000 });
+  if (opts.waitForSelector) {
+    await page.waitForSelector(opts.waitForSelector, { timeout: 30_000 });
   }
 
-  if (options.waitForTimeout) {
-    await new Promise((r) => setTimeout(r, options.waitForTimeout));
+  if (opts.waitForTimeout) {
+    await new Promise((r) => setTimeout(r, opts.waitForTimeout));
   }
 }
 
@@ -303,8 +323,7 @@ async function setupResourceBlocking(
   }
 
   if (urls.length > 0) {
-    const getClient = (page as any)._client;
-    const client = typeof getClient === 'function' ? getClient.call(page) : getClient;
+    const client = await getPageCdpClient(page);
     if (client) {
       await client.send('Network.enable').catch(() => undefined);
       await client.send('Network.setBlockedURLs', { urls });

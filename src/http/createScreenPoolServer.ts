@@ -9,7 +9,7 @@ export interface CreateScreenPoolServerOptions extends CreateScreenPoolAppOption
 
 export interface ScreenPoolServer {
   app: ReturnType<typeof createScreenPoolApp>;
-  server: ServerType;
+  server: ServerType | null;
   port: number;
   listen: () => Promise<{ port: number; host: string }>;
   close: () => Promise<void>;
@@ -18,11 +18,12 @@ export interface ScreenPoolServer {
 /** Create Hono app + Node HTTP server for ScreenPool. */
 export function createScreenPoolServer(
   pool: ScreenPool,
-  options: CreateScreenPoolServerOptions = {},
+  options?: CreateScreenPoolServerOptions | null,
 ): ScreenPoolServer {
-  const app = createScreenPoolApp(pool, options);
-  const requestedPort = options.port ?? 3000;
-  const hostname = options.host ?? '0.0.0.0';
+  const opts = options || {};
+  const app = createScreenPoolApp(pool, opts);
+  const requestedPort = opts.port ?? 3000;
+  const hostname = opts.host ?? '0.0.0.0';
 
   let server: ServerType | null = null;
   let boundPort = requestedPort;
@@ -33,9 +34,6 @@ export function createScreenPoolServer(
       return boundPort;
     },
     get server() {
-      if (!server) {
-        throw new Error('Server not started. Call listen() first.');
-      }
       return server;
     },
     listen: () =>

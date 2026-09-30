@@ -121,7 +121,10 @@ export class DiagnosticsCollectorImpl implements DiagnosticsCollector {
       // 2. Performance Metrics
       let performanceMetrics;
       if (this.options.performance && this.pageAdapter) {
-        performanceMetrics = await capturePerformance(this.pageAdapter);
+        performanceMetrics = await capturePerformance(
+          this.pageAdapter,
+          this.options.webVitals !== false,
+        );
       }
 
       // 3. HTML Content

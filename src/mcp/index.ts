@@ -9,3 +9,6 @@ export { McpLogger } from './logger.js';
 export type { LogLevel } from './logger.js';
 export { saveArtifactBuffer, resolveArtifactsDir, generateArtifactFilename } from './artifacts.js';
 export type { ArtifactResult } from './artifacts.js';
+export { registerMcpTools, getScreenpoolTools } from './tools.js';
+export type { ScreenpoolMcpContext } from './tools.js';
+export { createMcpServer, type McpApp, z } from 'mcponce';

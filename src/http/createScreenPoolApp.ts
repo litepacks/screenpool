@@ -15,10 +15,11 @@ export interface CreateScreenPoolAppOptions {
 /** Create a mountable Hono app for ScreenPool render endpoints. */
 export function createScreenPoolApp(
   pool: ScreenPool,
-  options: CreateScreenPoolAppOptions = {},
+  options?: CreateScreenPoolAppOptions | null,
 ): Hono {
   const app = new Hono();
-  const maxBody = options.maxBodyBytes ?? 1_048_576;
+  const opts = options || {};
+  const maxBody = opts.maxBodyBytes ?? 1_048_576;
 
   app.use('*', bodyLimit(maxBody));
 
@@ -75,9 +76,9 @@ export function createScreenPoolApp(
 
   app.onError((err, c) => handleHttpError(err, c));
 
-  if (options.basePath) {
+  if (opts.basePath) {
     const root = new Hono();
-    root.route(options.basePath, app);
+    root.route(opts.basePath, app);
     return root;
   }
 

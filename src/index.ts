@@ -30,6 +30,8 @@ export type {
   PdfFormat,
   ExtractOptions,
   ExtractResult,
+  AuditOptions,
+  AuditResult,
 } from './types.js';
 
 export {
@@ -64,6 +66,12 @@ export { resolveOutputPath, ensureOutputDir, formatToExt } from './utils/resolve
 
 export * as diagnostics from './diagnostics/index.js';
 export type * from './diagnostics/types.js';
+export {
+  captureWebVitals,
+  computeWebVitalsScore,
+  rateMetric,
+  WEB_VITALS_THRESHOLDS,
+} from './diagnostics/web-vitals.js';
 
 export type { StealthConfig, StealthInput, ResolvedStealthConfig } from './stealth/types.js';
 export { normalizeStealthConfig } from './stealth/normalize-config.js';

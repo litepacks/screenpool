@@ -2,7 +2,7 @@ import type { ScreenPool } from '../ScreenPool.js';
 import type { ScreenpoolMcpConfig } from './config.js';
 import { validateTargetUrl } from './security.js';
 import { saveArtifactBuffer } from './artifacts.js';
-import type { ScreenshotInput, PdfInput, HtmlInput, MetadataInput, HelpInput } from './schemas.js';
+import type { ScreenshotInput, PdfInput, HtmlInput, MetadataInput, HelpInput, PageSpeedInput } from './schemas.js';
 import { VERSION } from '../version.js';
 
 export async function handleScreenshot(
@@ -189,6 +189,7 @@ export async function handleCapabilities(
     'screenpool_record_start',
     'screenpool_record_stop',
     'screenpool_record_get',
+    'screenpool_pagespeed',
     'screenpool_health',
     'screenpool_capabilities',
     'screenpool_help',
@@ -217,6 +218,7 @@ export async function handleCapabilities(
         'network',
         'pageState',
         'performance',
+        'webVitals',
         'timeline',
         'artifacts',
         'sanitizer',
@@ -800,5 +802,58 @@ export async function handleRecordGet(pool: ScreenPool, input: any) {
     success: true,
     sessionId: session.id,
     active: active ? { id: active.id, startedAt: active.startedAt } : null,
+  };
+}
+
+export async function handlePageSpeed(
+  pool: ScreenPool,
+  input: PageSpeedInput,
+  config?: ScreenpoolMcpConfig,
+) {
+  if (config?.security) {
+    validateTargetUrl(input.url, config.security);
+  }
+
+  const result = await pool.audit({
+    url: input.url,
+    device: input.device ?? 'desktop',
+    timeout: input.timeout ?? 30000,
+    throttling: input.throttling
+      ? { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 } // Simulated 4G
+      : undefined,
+  });
+
+  return {
+    success: true,
+    url: result.url,
+    score: result.score,
+    rating: result.score >= 90 ? 'good' : result.score >= 50 ? 'needs-improvement' : 'poor',
+    durationMs: result.durationMs,
+    webVitals: {
+      lcp: {
+        valueMs: result.webVitals.lcpMs,
+        rating: result.webVitals.ratings?.lcp,
+        element: result.webVitals.lcpElement,
+        size: result.webVitals.lcpSize,
+      },
+      cls: {
+        score: result.webVitals.cls,
+        rating: result.webVitals.ratings?.cls,
+        entriesCount: result.webVitals.clsEntriesCount,
+      },
+      fcp: {
+        valueMs: result.webVitals.fcpMs,
+        rating: result.webVitals.ratings?.fcp,
+      },
+      ttfb: {
+        valueMs: result.webVitals.ttfbMs,
+        rating: result.webVitals.ratings?.ttfb,
+      },
+      inp: {
+        valueMs: result.webVitals.inpMs,
+        rating: result.webVitals.ratings?.inp,
+      },
+    },
+    cdpMetrics: result.webVitals.cdpMetrics,
   };
 }

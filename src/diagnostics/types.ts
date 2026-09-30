@@ -36,6 +36,7 @@ export interface DiagnosticsOptions {
       };
   pageState?: boolean;
   performance?: boolean;
+  webVitals?: boolean;
   timeline?: boolean;
 
   captureOnError?: DiagnosticArtifactType[];
@@ -262,6 +263,51 @@ export interface NavigationPerformanceDiagnostic {
   paintTiming?: {
     firstPaint?: number;
     firstContentfulPaint?: number;
+  };
+  webVitals?: CoreWebVitalsDiagnostic;
+}
+
+export type WebVitalsRating = 'good' | 'needs-improvement' | 'poor';
+
+export interface CoreWebVitalsDiagnostic {
+  /** Largest Contentful Paint in milliseconds */
+  lcpMs?: number;
+  /** Selector / tag descriptor of LCP element (e.g. "img#banner", "h1.hero-title") */
+  lcpElement?: string;
+  /** Size in pixels of LCP element */
+  lcpSize?: number;
+  /** Cumulative Layout Shift score */
+  cls?: number;
+  /** Number of layout shifts detected */
+  clsEntriesCount?: number;
+  /** First Contentful Paint in milliseconds */
+  fcpMs?: number;
+  /** Time to First Byte in milliseconds */
+  ttfbMs?: number;
+  /** Interaction to Next Paint / First Input Delay in milliseconds */
+  inpMs?: number;
+  fidMs?: number;
+  /** DOM Content Loaded in milliseconds */
+  domContentLoadedMs?: number;
+  /** Window Load event in milliseconds */
+  loadMs?: number;
+  /** Google Web Vitals standard ratings */
+  ratings?: {
+    lcp?: WebVitalsRating;
+    cls?: WebVitalsRating;
+    fcp?: WebVitalsRating;
+    ttfb?: WebVitalsRating;
+    inp?: WebVitalsRating;
+  };
+  /** CDP low-level engine & memory metrics */
+  cdpMetrics?: {
+    jsHeapUsedBytes?: number;
+    jsHeapTotalBytes?: number;
+    domNodeCount?: number;
+    layoutDurationMs?: number;
+    recalcStyleDurationMs?: number;
+    scriptDurationMs?: number;
+    taskDurationMs?: number;
   };
 }
 

@@ -8,3 +8,5 @@ coverage/
 *.tsbuildinfo
 graphify-out/
 .screenpool/
+.softscope/
+seeds.json

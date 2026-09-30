@@ -11,6 +11,9 @@ export interface ResolveOutputPathOptions {
 
 /** Ensure output directory exists. */
 export async function ensureOutputDir(dir: string): Promise<void> {
+  if (typeof dir !== 'string') {
+    throw new InvalidOutputPathError(String(dir), 'Output directory path must be a string.');
+  }
   await mkdir(dir, { recursive: true });
 }
 
@@ -21,13 +24,19 @@ export async function ensureOutputDir(dir: string): Promise<void> {
  * - No `out` → outputDir/jobId.ext
  */
 export function resolveOutputPath(options: ResolveOutputPathOptions): string {
+  if (!options || typeof options !== 'object') {
+    throw new InvalidOutputPathError('', 'Options must be provided as an object.');
+  }
   const { outputDir, out, jobId, ext } = options;
+  if (typeof outputDir !== 'string') {
+    throw new InvalidOutputPathError(String(outputDir), 'outputDir must be a string.');
+  }
   const resolvedOutputDir = resolve(outputDir);
 
   let targetPath: string;
 
   if (!out) {
-    targetPath = resolve(resolvedOutputDir, `${jobId}.${ext}`);
+    targetPath = resolve(resolvedOutputDir, `${jobId ?? 'render'}.${ext ?? 'png'}`);
   } else if (isAbsolute(out)) {
     targetPath = resolve(out);
   } else {

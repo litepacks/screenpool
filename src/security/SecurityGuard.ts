@@ -106,12 +106,13 @@ function isPrivateOrLinkLocal(
     return false;
   }
 
-  const octets = ipv4Match.slice(1).map(Number) as [number, number, number, number];
-  if (octets.some((o) => o > 255)) {
+  const a = Number(ipv4Match[1]);
+  const b = Number(ipv4Match[2]);
+  const c = Number(ipv4Match[3]);
+  const d = Number(ipv4Match[4]);
+  if (a > 255 || b > 255 || c > 255 || d > 255) {
     return true;
   }
-
-  const [a, b] = octets;
 
   // 10.0.0.0/8
   if (a === 10) return true;

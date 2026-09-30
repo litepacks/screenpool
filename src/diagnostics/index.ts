@@ -12,3 +12,4 @@ export * from './timeline.js';
 export * from './summary.js';
 export * from './artifacts.js';
 export * from './collector.js';
+export * from './web-vitals.js';

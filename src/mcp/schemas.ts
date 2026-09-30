@@ -225,6 +225,13 @@ export const StateImportInputSchema = z.object({
   page: pageReferenceSchema.optional().describe('Target page reference (default: active page)'),
 });
 
+export const PageSpeedInputSchema = z.object({
+  url: z.string().url('A valid URL is required (e.g. https://example.com)').describe('Target URL to audit for Core Web Vitals and PageSpeed metrics'),
+  device: z.enum(['desktop', 'mobile']).optional().default('desktop').describe('Device viewport emulation (desktop or mobile)'),
+  timeout: z.number().int().positive().optional().default(30000).describe('Page navigation timeout in milliseconds'),
+  throttling: z.boolean().optional().describe('Simulate slow 4G network connection'),
+});
+
 export type ScreenshotInput = z.infer<typeof ScreenshotInputSchema>;
 export type PdfInput = z.infer<typeof PdfInputSchema>;
 export type HtmlInput = z.infer<typeof HtmlInputSchema>;
@@ -234,4 +241,5 @@ export type CdpSendInput = z.infer<typeof CdpSendInputSchema>;
 export type ModeSwitchInput = z.infer<typeof ModeSwitchInputSchema>;
 export type StateExportInput = z.infer<typeof StateExportInputSchema>;
 export type StateImportInput = z.infer<typeof StateImportInputSchema>;
+export type PageSpeedInput = z.infer<typeof PageSpeedInputSchema>;
 

@@ -182,6 +182,7 @@ Launches the browser, navigates to the target URL, executes the action array seq
 - **`screenpool_cdp_send`**: Directly executes Chrome DevTools Protocol commands (e.g. `Network.setCookie`, `Emulation.setDeviceMetricsOverride`).
 - **`screenpool_state_export` & `screenpool_state_import`**: Exports and imports session cookies and `localStorage` as portable JSON objects.
 - **`screenpool_mode_switch`**: Dynamically toggles headless / headed mode and DevTools inspection at runtime.
+- **`screenpool_pagespeed`**: Audits PageSpeed and Core Web Vitals (LCP, CLS, FCP, TTFB, INP) for desktop or mobile with simulated network throttling (4G).
 
 ---
 

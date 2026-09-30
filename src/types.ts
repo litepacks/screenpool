@@ -32,7 +32,23 @@ export interface BrowserInstallConfig {
   cacheDir?: string;
 }
 
-import type { DiagnosticsInput, DiagnosticsOptions, DiagnosticsResult } from './diagnostics/types.js';
+import type {
+  DiagnosticsInput,
+  DiagnosticsOptions,
+  DiagnosticsResult,
+  CoreWebVitalsDiagnostic,
+  WebVitalsRating,
+  NavigationPerformanceDiagnostic,
+} from './diagnostics/types.js';
+
+export type {
+  DiagnosticsInput,
+  DiagnosticsOptions,
+  DiagnosticsResult,
+  CoreWebVitalsDiagnostic,
+  WebVitalsRating,
+  NavigationPerformanceDiagnostic,
+};
 import type { StealthConfig, StealthInput, ResolvedStealthConfig } from './stealth/types.js';
 import { normalizeStealthConfig } from './stealth/normalize-config.js';
 
@@ -208,6 +224,45 @@ export interface RenderResult {
   diagnostics?: DiagnosticsResult;
 }
 
+/** Configuration options for PageSpeed / Core Web Vitals audit. */
+export interface AuditOptions {
+  /** Target URL to audit */
+  url: string;
+  /** Emulate device viewport (default: 'desktop') */
+  device?: 'desktop' | 'mobile';
+  /** Custom viewport configuration */
+  viewport?: ViewportConfig;
+  /** Navigation wait condition (default: 'load') */
+  waitUntil?: WaitUntil;
+  /** Navigation timeout in ms (default: 30000) */
+  timeout?: number;
+  /** Throttling options or slow network emulation */
+  throttling?: {
+    downloadKbps?: number;
+    uploadKbps?: number;
+    latencyMs?: number;
+  };
+  /** Collect extra diagnostic artifacts or logs */
+  diagnostics?: DiagnosticsInput;
+}
+
+/** Result returned from PageSpeed / Core Web Vitals audit. */
+export interface AuditResult {
+  url: string;
+  durationMs: number;
+  score: number;
+  webVitals: CoreWebVitalsDiagnostic;
+  performance?: NavigationPerformanceDiagnostic;
+  summary: {
+    lcp: { valueMs?: number; rating?: WebVitalsRating; element?: string };
+    cls: { score?: number; rating?: WebVitalsRating };
+    fcp: { valueMs?: number; rating?: WebVitalsRating };
+    ttfb: { valueMs?: number; rating?: WebVitalsRating };
+    inp: { valueMs?: number; rating?: WebVitalsRating };
+  };
+  diagnostics?: DiagnosticsResult;
+}
+
 /** Pool statistics snapshot. */
 export interface PoolStats {
   started: boolean;
@@ -313,24 +368,25 @@ import os from 'node:os';
 import { resolveDiagnosticsOptions } from './diagnostics/presets.js';
 
 /** Apply defaults to user config. */
-export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfig {
+export function resolveConfig(config?: ScreenPoolConfig | null): ResolvedScreenPoolConfig {
+  const conf = config || {};
   const outputDir =
-    config.outputDir ??
-    config.storage?.outputDir ??
+    conf.outputDir ??
+    conf.storage?.outputDir ??
     process.env.SCREENPOOL_OUTPUT_DIR ??
     DEFAULT_OUTPUT_DIR;
 
   const tempDir =
-    config.storage?.tempDir ??
+    conf.storage?.tempDir ??
     process.env.SCREENPOOL_TEMP_DIR ??
     `${os.tmpdir()}/screenpool`;
 
   const userDataDir =
-    config.userDataDir ??
+    conf.userDataDir ??
     process.env.SCREENPOOL_USER_DATA_DIR;
 
   const envDiagnosticsInput = process.env.SCREENPOOL_DIAGNOSTICS;
-  let resolvedDiagnosticsInput = config.diagnostics;
+  let resolvedDiagnosticsInput = conf.diagnostics;
   if (resolvedDiagnosticsInput === undefined && envDiagnosticsInput !== undefined) {
     if (envDiagnosticsInput === 'true') resolvedDiagnosticsInput = true;
     else if (envDiagnosticsInput === 'false') resolvedDiagnosticsInput = false;
@@ -357,54 +413,54 @@ export function resolveConfig(config: ScreenPoolConfig): ResolvedScreenPoolConfi
     maxNetworkEntries: envMaxNetwork,
   });
 
-  const devtools = config.devtools ?? (process.env.SCREENPOOL_DEVTOOLS === 'true');
+  const devtools = conf.devtools ?? (process.env.SCREENPOOL_DEVTOOLS === 'true');
   const remoteDebuggingPort =
-    config.remoteDebuggingPort ??
+    conf.remoteDebuggingPort ??
     (process.env.SCREENPOOL_REMOTE_DEBUGGING_PORT
       ? Number.parseInt(process.env.SCREENPOOL_REMOTE_DEBUGGING_PORT, 10)
       : undefined);
 
-  let headless: boolean | 'shell' = config.headless ?? true;
+  let headless: boolean | 'shell' = conf.headless ?? true;
   if (devtools) {
     headless = false;
   }
 
-  const stealth = normalizeStealthConfig(config.stealth, process.env.SCREENPOOL_STEALTH);
+  const stealth = normalizeStealthConfig(conf.stealth, process.env.SCREENPOOL_STEALTH);
 
   return {
-    executablePath: config.executablePath,
-    browser: config.browser,
-    browserWSEndpoint: config.browserWSEndpoint,
-    browserURL: config.browserURL,
-    browserInstance: config.browserInstance,
-    poolSize: config.poolSize ?? DEFAULT_POOL_SIZE,
-    maxQueueSize: config.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE,
-    jobTimeout: config.jobTimeout ?? DEFAULT_JOB_TIMEOUT,
-    browserRestartAfterJobs: config.browserRestartAfterJobs ?? 0,
-    workerRestartAfterJobs: config.workerRestartAfterJobs ?? DEFAULT_WORKER_RESTART_AFTER_JOBS,
-    idleTimeout: config.idleTimeout ?? 0,
-    launchArgs: config.launchArgs ?? [],
-    allowLocalhost: config.allowLocalhost ?? false,
-    allowPrivateNetworks: config.allowPrivateNetworks ?? false,
-    allowFileProtocol: config.allowFileProtocol ?? false,
-    shared: config.shared ?? (process.env.SCREENPOOL_SHARED === 'true'),
+    executablePath: conf.executablePath,
+    browser: conf.browser,
+    browserWSEndpoint: conf.browserWSEndpoint,
+    browserURL: conf.browserURL,
+    browserInstance: conf.browserInstance,
+    poolSize: conf.poolSize ?? DEFAULT_POOL_SIZE,
+    maxQueueSize: conf.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE,
+    jobTimeout: conf.jobTimeout ?? DEFAULT_JOB_TIMEOUT,
+    browserRestartAfterJobs: conf.browserRestartAfterJobs ?? 0,
+    workerRestartAfterJobs: conf.workerRestartAfterJobs ?? DEFAULT_WORKER_RESTART_AFTER_JOBS,
+    idleTimeout: conf.idleTimeout ?? 0,
+    launchArgs: conf.launchArgs ?? [],
+    allowLocalhost: conf.allowLocalhost ?? false,
+    allowPrivateNetworks: conf.allowPrivateNetworks ?? false,
+    allowFileProtocol: conf.allowFileProtocol ?? false,
+    shared: conf.shared ?? (process.env.SCREENPOOL_SHARED === 'true'),
     userDataDir,
     devtools,
     remoteDebuggingPort,
     headless,
     stealth,
-    defaultViewport: config.defaultViewport ?? {
+    defaultViewport: conf.defaultViewport ?? {
       width: 1280,
       height: 720,
       deviceScaleFactor: 1,
     },
     diagnostics: globalDiagOpts ?? undefined,
     memory: {
-      limitMb: config.memory?.limitMb,
-      v8HeapMb: config.memory?.v8HeapMb,
-      checkIntervalMs: config.memory?.checkIntervalMs ?? 5000,
-      pressureThreshold: config.memory?.pressureThreshold ?? 0.85,
-      restartOnLimit: config.memory?.restartOnLimit ?? true,
+      limitMb: conf.memory?.limitMb,
+      v8HeapMb: conf.memory?.v8HeapMb,
+      checkIntervalMs: conf.memory?.checkIntervalMs ?? 5000,
+      pressureThreshold: conf.memory?.pressureThreshold ?? 0.85,
+      restartOnLimit: conf.memory?.restartOnLimit ?? true,
     },
     storage: { outputDir, tempDir },
   };
