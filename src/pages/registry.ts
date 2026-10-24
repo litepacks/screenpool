@@ -92,12 +92,9 @@ export class PageRegistry {
   /** Tear down registry and release all page references to prevent memory leaks */
   clear(): void {
     this.detachListeners();
-    for (const page of this.pages.values()) {
-      try {
-        page.rawPage.removeAllListeners();
-      } catch {}
-    }
     this.pages.clear();
+    this.pageByRaw = new WeakMap();
+    this.targetByRaw = new WeakMap();
     this.mainPageIdInternal = undefined;
     this.activePageIdInternal = undefined;
   }
@@ -303,10 +300,6 @@ export class PageRegistry {
     page.state = 'closed';
     page.closedAt = new Date().toISOString();
     page.updatedAt = page.closedAt;
-
-    try {
-      page.rawPage.removeAllListeners();
-    } catch {}
 
     this.eventBus.emit('page.closed', {
       pageId: page.id,

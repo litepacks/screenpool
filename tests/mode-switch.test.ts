@@ -45,6 +45,7 @@ describe.skipIf(!hasChromium())('Dynamic Mode Switching & Profile State Hand-off
       value: 'secret_token_12345',
       domain: '.example.com',
       path: '/',
+      expires: Math.floor(Date.now() / 1000) + 86400,
     });
 
     // Verify cookie exists
