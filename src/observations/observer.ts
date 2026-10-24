@@ -19,18 +19,39 @@ export class Observer {
   ): Promise<Observation> {
     const obsId = `obs_${createJobId()}`;
     const rawPage = page.rawPage;
-
     const viewport = rawPage.viewport() ?? { width: 1280, height: 720 };
-    const scroll = await rawPage.evaluate(() => {
-      const win = globalThis as any;
-      return {
-        x: Math.round(win.scrollX || 0),
-        y: Math.round(win.scrollY || 0),
-      };
-    }).catch(() => ({ x: 0, y: 0 }));
-
     const url = rawPage.url() || 'about:blank';
-    const title = await rawPage.title().catch(() => '');
+    const htmlMode = options.html ?? 'compact';
+
+    // Single CDP roundtrip to extract scroll coordinates, document title,
+    // and in-page truncated HTML (avoiding transfer of megabytes over CDP).
+    const pageMeta = await rawPage
+      .evaluate((mode: string) => {
+        const win = globalThis as any;
+        const doc = win?.document;
+        const scroll = {
+          x: Math.round(win?.scrollX || 0),
+          y: Math.round(win?.scrollY || 0),
+        };
+        const title = doc?.title || '';
+
+        let compactContent = '';
+        let isTruncated = false;
+
+        if (mode === 'compact' && doc?.documentElement) {
+          const outer = doc.documentElement.outerHTML || '';
+          isTruncated = outer.length > 50_000;
+          compactContent = isTruncated ? outer.slice(0, 50_000) : outer;
+        }
+
+        return { scroll, title, compactContent, isTruncated };
+      }, htmlMode)
+      .catch(() => ({
+        scroll: { x: 0, y: 0 },
+        title: '',
+        compactContent: '',
+        isTruncated: false,
+      }));
 
     let elements: ObservedElement[] | undefined;
     if (options.elements !== false) {
@@ -38,26 +59,28 @@ export class Observer {
     }
 
     let html;
-    const htmlMode = options.html ?? 'compact';
     if (htmlMode !== 'off') {
-      const content = await rawPage.content().catch(() => '');
-      const isCompact = htmlMode === 'compact';
-      const truncatedContent = isCompact && content.length > 50_000
-        ? content.slice(0, 50_000)
-        : content;
-
-      html = {
-        mode: htmlMode,
-        content: truncatedContent,
-        truncated: isCompact && content.length > 50_000,
-      };
+      if (htmlMode === 'compact') {
+        html = {
+          mode: htmlMode,
+          content: pageMeta.compactContent,
+          truncated: pageMeta.isTruncated,
+        };
+      } else {
+        const content = await rawPage.content().catch(() => '');
+        html = {
+          mode: htmlMode,
+          content,
+          truncated: false,
+        };
+      }
     }
 
     const fingerprint = computePageFingerprint({
       url,
-      title,
+      title: pageMeta.title,
       viewport: { width: viewport.width, height: viewport.height },
-      scroll,
+      scroll: pageMeta.scroll,
       elementCount: elements?.length,
     });
 
@@ -68,13 +91,13 @@ export class Observer {
       createdAt: new Date().toISOString(),
       page: {
         url,
-        title,
+        title: pageMeta.title,
         viewport: {
           width: viewport.width,
           height: viewport.height,
           deviceScaleFactor: viewport.deviceScaleFactor,
         },
-        scroll,
+        scroll: pageMeta.scroll,
       },
       html,
       elements,

@@ -63,13 +63,24 @@ export class ScreenPool extends EventEmitter {
   private startTime = 0;
   private completedJobs = 0;
   private failedJobs = 0;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: ScreenPoolConfig) {
     super();
     this.config = resolveConfig(config);
     this.browserManager = new BrowserManager(this.config);
     this.jobQueue = new JobQueue(this.config.maxQueueSize);
-    this.sessionManagerInternal = new SessionManager(() => this.browserManager.getBrowser());
+    this.sessionManagerInternal = new SessionManager(
+      () => this.browserManager.getBrowser(),
+      async () => {
+        if (!this.started) {
+          await this.start();
+        }
+      },
+    );
+    this.sessionManagerInternal.setActivityCallback(() => {
+      this.checkIdleState();
+    });
   }
 
   /** Access Session Manager for session-based browser actions. */
@@ -124,6 +135,7 @@ export class ScreenPool extends EventEmitter {
     this.startTime = Date.now();
     this.emit('started');
     this.schedulePump();
+    this.checkIdleState();
   }
 
   /** Graceful shutdown — alias for stop(). */
@@ -135,6 +147,7 @@ export class ScreenPool extends EventEmitter {
   async stop(): Promise<void> {
     if (!this.started && !this.stopping) return;
 
+    this.clearIdleTimer();
     this.stopping = true;
     this.jobQueue.rejectAll(new ScreenPoolStoppingError());
 
@@ -147,6 +160,59 @@ export class ScreenPool extends EventEmitter {
     this.started = false;
     this.stopping = false;
     this.emit('stopped');
+  }
+
+  private checkIdleState(): void {
+    if (this.config.idleTimeout <= 0 || !this.started || this.stopping) {
+      return;
+    }
+
+    const hasActiveJobs = (this.workerPool?.getActiveJobs() ?? 0) > 0;
+    const hasQueuedJobs = this.jobQueue.length > 0;
+    const hasActiveSessions = this.sessionManagerInternal
+      .list()
+      .some((s) => s.state !== 'closed' && s.state !== 'expired');
+
+    if (!hasActiveJobs && !hasQueuedJobs && !hasActiveSessions) {
+      this.startIdleTimer();
+    } else {
+      this.clearIdleTimer();
+    }
+  }
+
+  private startIdleTimer(): void {
+    if (this.idleTimer || this.config.idleTimeout <= 0) return;
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      void this.handleIdleTimeout();
+    }, this.config.idleTimeout);
+    if (typeof this.idleTimer.unref === 'function') {
+      this.idleTimer.unref();
+    }
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+  }
+
+  private async handleIdleTimeout(): Promise<void> {
+    if (!this.started || this.stopping) return;
+
+    const hasActiveJobs = (this.workerPool?.getActiveJobs() ?? 0) > 0;
+    const hasQueuedJobs = this.jobQueue.length > 0;
+    const hasActiveSessions = this.sessionManagerInternal
+      .list()
+      .some((s) => s.state !== 'closed' && s.state !== 'expired');
+
+    if (hasActiveJobs || hasQueuedJobs || hasActiveSessions) {
+      return;
+    }
+
+    this.emit('idle:timeout');
+    await this.stop().catch(() => undefined);
   }
 
   /** Capture a screenshot. */
@@ -362,6 +428,8 @@ export class ScreenPool extends EventEmitter {
     return {
       started: this.started,
       poolSize: this.config.poolSize,
+      minWorkers: this.config.minWorkers,
+      initializedWorkers: this.workerPool?.getInitializedWorkersCount() ?? 0,
       activeJobs: this.workerPool?.getActiveJobs() ?? 0,
       queuedJobs: this.jobQueue.length,
       completedJobs: this.completedJobs,
@@ -451,16 +519,19 @@ export class ScreenPool extends EventEmitter {
           this.completedJobs++;
           this.healthMonitor?.incrementJobsCompleted();
           this.emit('job:completed', { jobId, type });
+          this.checkIdleState();
           resolve(result);
         },
         reject: (error) => {
           this.failedJobs++;
           this.emit('job:failed', { jobId, type, error });
+          this.checkIdleState();
           reject(error);
         },
       };
 
       try {
+        this.clearIdleTimer();
         const { position } = this.jobQueue.enqueue(job);
         this.emit('job:queued', { jobId, type, position });
         this.schedulePump();
@@ -506,10 +577,12 @@ export class ScreenPool extends EventEmitter {
       const job = this.jobQueue.dequeue();
       if (!job) break;
 
+      this.clearIdleTimer();
       this.emit('job:started', { jobId: job.id, type: job.type });
 
       void this.workerPool.runJob(job).finally(() => {
         this.schedulePump();
+        this.checkIdleState();
       });
     }
   }

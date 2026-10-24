@@ -69,7 +69,7 @@ export async function isSharedDaemonAlive(info: SharedDaemonInfo): Promise<boole
 /**
  * Read current shared daemon info if exists and valid.
  */
-export async function getActiveSharedDaemonInfo(): Promise<SharedDaemonInfo | null> {
+export async function getActiveSharedDaemonInfo(config?: ResolvedScreenPoolConfig): Promise<SharedDaemonInfo | null> {
   const stateFile = getSharedDaemonStateFile();
   if (!existsSync(stateFile)) return null;
 
@@ -78,6 +78,10 @@ export async function getActiveSharedDaemonInfo(): Promise<SharedDaemonInfo | nu
     const info: SharedDaemonInfo = JSON.parse(raw);
     const alive = await isSharedDaemonAlive(info);
     if (alive) {
+      if (config?.idleTimeout && config.idleTimeout > 0 && Date.now() - info.lastActiveAt > config.idleTimeout) {
+        await stopSharedDaemon();
+        return null;
+      }
       return info;
     }
     // Stale state file: remove it
@@ -142,7 +146,7 @@ export async function acquireSharedBrowser(
   config: ResolvedScreenPoolConfig,
 ): Promise<{ wsEndpoint: string; isNew: boolean; browser?: Browser }> {
   // 1. Check if already active
-  const existing = await getActiveSharedDaemonInfo();
+  const existing = await getActiveSharedDaemonInfo(config);
   if (existing) {
     touchSharedDaemon();
     return { wsEndpoint: existing.wsEndpoint, isNew: false };
@@ -154,7 +158,7 @@ export async function acquireSharedBrowser(
 
   try {
     // Re-check inside critical section
-    const recheck = await getActiveSharedDaemonInfo();
+    const recheck = await getActiveSharedDaemonInfo(config);
     if (recheck) {
       touchSharedDaemon();
       return { wsEndpoint: recheck.wsEndpoint, isNew: false };
@@ -195,6 +199,32 @@ export async function acquireSharedBrowser(
     };
 
     writeFileSync(getSharedDaemonStateFile(), JSON.stringify(info, null, 2), 'utf8');
+
+    // Register idle watchdog timer to automatically shut down daemon after inactivity
+    if (config.idleTimeout > 0) {
+      const checkInterval = Math.min(30_000, Math.max(5_000, Math.floor(config.idleTimeout / 4)));
+      const idleInterval = setInterval(async () => {
+        try {
+          const sf = getSharedDaemonStateFile();
+          if (!existsSync(sf)) {
+            clearInterval(idleInterval);
+            return;
+          }
+          const cur = JSON.parse(readFileSync(sf, 'utf8'));
+          if (cur.pid === pid && Date.now() - cur.lastActiveAt > config.idleTimeout) {
+            clearInterval(idleInterval);
+            await browser.close().catch(() => undefined);
+            try { unlinkSync(sf); } catch {}
+          }
+        } catch {
+          clearInterval(idleInterval);
+        }
+      }, checkInterval);
+
+      if (typeof idleInterval.unref === 'function') {
+        idleInterval.unref();
+      }
+    }
 
     // Register process exit hook to cleanup state file
     const cleanupHook = () => {

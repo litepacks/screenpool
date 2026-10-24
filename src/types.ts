@@ -82,6 +82,8 @@ export interface ScreenPoolConfig {
   browserURL?: string;
   browserInstance?: any;
   poolSize?: number;
+  /** Minimum pre-warmed workers kept in memory (default: 1, set to 0 for pure on-demand lazy workers) */
+  minWorkers?: number;
   maxQueueSize?: number;
   jobTimeout?: number;
   browserRestartAfterJobs?: number;
@@ -267,6 +269,8 @@ export interface AuditResult {
 export interface PoolStats {
   started: boolean;
   poolSize: number;
+  minWorkers?: number;
+  initializedWorkers?: number;
   activeJobs: number;
   queuedJobs: number;
   completedJobs: number;
@@ -304,6 +308,7 @@ export interface ResolvedScreenPoolConfig {
   browserURL?: string;
   browserInstance?: any;
   poolSize: number;
+  minWorkers: number;
   maxQueueSize: number;
   jobTimeout: number;
   browserRestartAfterJobs: number;
@@ -356,6 +361,9 @@ export const DEFAULT_CHROMIUM_ARGS = [
   '--disable-domain-reliability',
   '--run-all-compositor-stages-before-draw',
   '--font-render-hinting=none',
+  '--disable-speech-api',
+  '--disable-client-side-phishing-detection',
+  '--disable-notifications',
 ] as const;
 
 export const DEFAULT_POOL_SIZE = 4;
@@ -434,6 +442,10 @@ export function resolveConfig(config?: ScreenPoolConfig | null): ResolvedScreenP
     browserURL: conf.browserURL,
     browserInstance: conf.browserInstance,
     poolSize: conf.poolSize ?? DEFAULT_POOL_SIZE,
+    minWorkers:
+      conf.minWorkers !== undefined
+        ? Math.max(0, Math.min(conf.minWorkers, conf.poolSize ?? DEFAULT_POOL_SIZE))
+        : Math.min(1, conf.poolSize ?? DEFAULT_POOL_SIZE),
     maxQueueSize: conf.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE,
     jobTimeout: conf.jobTimeout ?? DEFAULT_JOB_TIMEOUT,
     browserRestartAfterJobs: conf.browserRestartAfterJobs ?? 0,

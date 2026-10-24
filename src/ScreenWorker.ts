@@ -41,6 +41,10 @@ export class ScreenWorker {
     return this.state;
   }
 
+  isInitialized(): boolean {
+    return this.page !== null && this.context !== null && !this.page.isClosed();
+  }
+
   /** Initialize browser context and page. */
   async init(): Promise<void> {
     await this.createContextAndPage();
@@ -224,7 +228,9 @@ export class ScreenWorker {
   /** Update browser reference after browser restart. */
   async setBrowser(browser: Browser): Promise<void> {
     this.browser = browser;
-    await this.createContextAndPage();
+    if (this.context || this.page) {
+      await this.createContextAndPage();
+    }
   }
 
   /** Close worker resources. */

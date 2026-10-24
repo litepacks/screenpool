@@ -82,14 +82,15 @@ export async function extractObservedElements(
         const el = item.el;
 
         const rect = el.getBoundingClientRect();
-        const style = win.getComputedStyle(el);
-
-        const hasCssVisibility =
-          style.display !== 'none' &&
-          style.visibility !== 'hidden' &&
-          style.opacity !== '0' &&
-          rect.width > 0 &&
-          rect.height > 0;
+        // Fast-path: Skip expensive getComputedStyle recalculation for zero-sized or detached nodes
+        let hasCssVisibility = false;
+        if (rect.width > 0 && rect.height > 0) {
+          const style = win.getComputedStyle(el);
+          hasCssVisibility =
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            style.opacity !== '0';
+        }
 
         const inViewport =
           hasCssVisibility &&

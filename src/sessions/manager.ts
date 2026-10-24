@@ -5,10 +5,24 @@ import { ActionError } from '../actions/errors.js';
 import { createJobId } from '../utils/uuid.js';
 
 export class SessionManager {
+  private static readonly MAX_FINISHED_MANIFESTS = 50;
   private sessions = new Map<string, BrowserSessionImpl>();
   private finishedManifests = new Map<string, any>();
+  private onActivityChange?: () => void;
+
+  setActivityCallback(cb: () => void): void {
+    this.onActivityChange = cb;
+  }
 
   saveFinishedManifest(sessionId: string, recordingId: string | undefined, manifest: any): void {
+    while (this.finishedManifests.size >= SessionManager.MAX_FINISHED_MANIFESTS) {
+      const oldestKey = this.finishedManifests.keys().next().value;
+      if (oldestKey) {
+        this.finishedManifests.delete(oldestKey);
+      } else {
+        break;
+      }
+    }
     this.finishedManifests.set(sessionId, manifest);
     if (recordingId) {
       this.finishedManifests.set(recordingId, manifest);
@@ -29,9 +43,15 @@ export class SessionManager {
     return this.finishedManifests.get(id);
   }
 
-  constructor(private readonly getBrowser: () => Browser) {}
+  constructor(
+    private readonly getBrowser: () => Browser,
+    private readonly ensureStarted?: () => Promise<void>,
+  ) {}
 
   async create(options: SessionOptions = {}): Promise<BrowserSessionImpl> {
+    if (this.ensureStarted) {
+      await this.ensureStarted();
+    }
     const browser = this.getBrowser();
     const sessionId = `session_${createJobId()}`;
 
@@ -39,6 +59,7 @@ export class SessionManager {
     await session.init();
 
     this.sessions.set(sessionId, session);
+    this.onActivityChange?.();
     return session;
   }
 
@@ -80,6 +101,7 @@ export class SessionManager {
         this.saveFinishedManifest(sessionId, (session as any).finishedManifest.id, (session as any).finishedManifest);
       }
       this.sessions.delete(sessionId);
+      this.onActivityChange?.();
     }
   }
 
@@ -87,6 +109,7 @@ export class SessionManager {
     const all = Array.from(this.sessions.values());
     await Promise.all(all.map((s) => s.close().catch(() => undefined)));
     this.sessions.clear();
+    this.onActivityChange?.();
   }
 
   findActiveRecordingSession(): BrowserSessionImpl | undefined {

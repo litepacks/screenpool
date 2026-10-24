@@ -25,6 +25,7 @@ export interface ScreenpoolMcpConfig {
   browser?: BrowserShorthand | string;
   executablePath?: string;
   poolSize?: number;
+  minWorkers?: number;
   maxQueueSize?: number;
   timeout?: number;
   headless?: boolean;
@@ -54,6 +55,7 @@ export const DEFAULT_MCP_CONFIG: Required<Omit<ScreenpoolMcpConfig, 'configFileP
   executablePath: undefined,
   userDataDir: undefined,
   poolSize: 3,
+  minWorkers: 1,
   maxQueueSize: 100,
   timeout: 30_000,
   headless: true,
@@ -159,6 +161,7 @@ export function resolveMcpConfig(
   const resolvedExecutablePath = cliOptions.executablePath ?? fileConfig.executablePath ?? DEFAULT_MCP_CONFIG.executablePath;
   const resolvedUserDataDir = cliOptions.userDataDir ?? envUserDataDir ?? fileConfig.userDataDir ?? DEFAULT_MCP_CONFIG.userDataDir;
   const resolvedPoolSize = cliOptions.poolSize ?? envPoolSize ?? fileConfig.poolSize ?? DEFAULT_MCP_CONFIG.poolSize;
+  const resolvedMinWorkers = cliOptions.minWorkers ?? fileConfig.minWorkers ?? DEFAULT_MCP_CONFIG.minWorkers;
   const resolvedMaxQueueSize = cliOptions.maxQueueSize ?? fileConfig.maxQueueSize ?? DEFAULT_MCP_CONFIG.maxQueueSize;
   const resolvedTimeout = cliOptions.timeout ?? envTimeout ?? fileConfig.timeout ?? DEFAULT_MCP_CONFIG.timeout;
   const resolvedHeadless = cliOptions.headless ?? envHeadless ?? fileConfig.headless ?? DEFAULT_MCP_CONFIG.headless;
@@ -192,6 +195,7 @@ export function resolveMcpConfig(
     browser: resolvedBrowser as any,
     executablePath: resolvedExecutablePath,
     poolSize: resolvedPoolSize,
+    minWorkers: resolvedMinWorkers,
     maxQueueSize: resolvedMaxQueueSize,
     timeout: resolvedTimeout,
     headless: resolvedHeadless,

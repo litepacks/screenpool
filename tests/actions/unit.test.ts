@@ -116,4 +116,33 @@ describe('Actions & Recording Unit Tests', () => {
       await rm(storage.dirPath, { recursive: true, force: true });
     } catch {}
   });
+
+  test('ObservationStore bounds capacity and evicts oldest observations', async () => {
+    const { ObservationStore } = await import('../../src/observations/store.js');
+    const store = new ObservationStore(3);
+
+    store.set({ id: 'obs_1' } as any);
+    store.set({ id: 'obs_2' } as any);
+    store.set({ id: 'obs_3' } as any);
+    expect(store.has('obs_1')).toBe(true);
+
+    // Adding 4th should evict obs_1
+    store.set({ id: 'obs_4' } as any);
+    expect(store.has('obs_1')).toBe(false);
+    expect(store.has('obs_2')).toBe(true);
+    expect(store.has('obs_4')).toBe(true);
+  });
+
+  test('SessionManager caps finishedManifests to MAX_FINISHED_MANIFESTS', async () => {
+    const { SessionManager } = await import('../../src/sessions/manager.js');
+    const manager = new SessionManager(() => ({} as any));
+
+    for (let i = 0; i < 60; i++) {
+      manager.saveFinishedManifest(`session_${i}`, `rec_${i}`, { id: `rec_${i}` });
+    }
+
+    // Earliest entries should be evicted
+    expect(manager.getFinishedManifest('session_0')).toBeUndefined();
+    expect(manager.getFinishedManifest('session_59')).toBeDefined();
+  });
 });

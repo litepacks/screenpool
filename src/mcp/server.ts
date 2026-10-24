@@ -70,6 +70,7 @@ export class ScreenpoolMcpServer {
         browser: this.config.browser as any,
         executablePath: this.config.executablePath,
         poolSize: this.config.poolSize,
+        minWorkers: this.config.minWorkers,
         maxQueueSize: this.config.maxQueueSize,
         jobTimeout: this.config.timeout,
         outputDir: this.config.artifactsDir,

@@ -2,7 +2,7 @@ import type { Browser } from 'puppeteer-core';
 import type { QueuedJob, ResolvedScreenPoolConfig } from './types.js';
 import { ScreenWorker } from './ScreenWorker.js';
 
-/** Pool of ScreenWorker instances with acquire/release semantics. */
+/** Pool of ScreenWorker instances with acquire/release semantics and lazy on-demand scaling. */
 export class WorkerPool {
   private workers: ScreenWorker[] = [];
   private activeJobs = 0;
@@ -14,13 +14,19 @@ export class WorkerPool {
     private readonly onWorkerRestarted?: (workerId: number) => void,
   ) {}
 
-  /** Initialize all workers in parallel. */
+  /** Initialize workers lazily: instantiate poolSize workers, but only pre-warm minWorkers (default: 1). */
   async init(): Promise<void> {
+    const minWorkers = Math.min(
+      this.config.minWorkers ?? 1,
+      this.config.poolSize,
+    );
     const workers = Array.from(
       { length: this.config.poolSize },
       (_, i) => new ScreenWorker(i, this.browser, this.config),
     );
-    await Promise.all(workers.map((w) => w.init()));
+    if (minWorkers > 0) {
+      await Promise.all(workers.slice(0, minWorkers).map((w) => w.init()));
+    }
     this.workers = workers;
   }
 
@@ -40,12 +46,26 @@ export class WorkerPool {
     }
   }
 
-  private waitForIdleWorker(): Promise<ScreenWorker> {
-    const idle = this.workers.find((w) => w.tryAcquire());
-    if (idle) {
-      return Promise.resolve(idle);
+  private async waitForIdleWorker(): Promise<ScreenWorker> {
+    // 1. Fast path: Find an already initialized idle worker
+    const initializedIdle = this.workers.find((w) => w.isInitialized() && w.tryAcquire());
+    if (initializedIdle) {
+      return initializedIdle;
     }
 
+    // 2. On-demand initialization: If an uninitialized worker is available, acquire and initialize it
+    const uninitialized = this.workers.find((w) => !w.isInitialized() && w.tryAcquire());
+    if (uninitialized) {
+      try {
+        await uninitialized.init();
+        return uninitialized;
+      } catch (err) {
+        uninitialized.markIdle();
+        throw err;
+      }
+    }
+
+    // 3. All poolSize workers are busy, wait in queue
     return new Promise<ScreenWorker>((resolve) => {
       this.waitQueue.push((worker) => {
         if (!worker.tryAcquire()) {
@@ -61,8 +81,10 @@ export class WorkerPool {
   async restartWorker(id: number): Promise<void> {
     const worker = this.workers[id];
     if (!worker) return;
-    await worker.recycle();
-    this.onWorkerRestarted?.(id);
+    if (worker.isInitialized()) {
+      await worker.recycle();
+      this.onWorkerRestarted?.(id);
+    }
   }
 
   /** Recreate all workers after browser restart. */
@@ -75,7 +97,11 @@ export class WorkerPool {
   /** Update browser reference for all workers in parallel. */
   async setBrowser(browser: Browser): Promise<void> {
     this.browser = browser;
-    await Promise.all(this.workers.map((worker) => worker.setBrowser(browser)));
+    await Promise.all(
+      this.workers
+        .filter((worker) => worker.isInitialized())
+        .map((worker) => worker.setBrowser(browser)),
+    );
   }
 
   getActiveJobs(): number {
@@ -84,6 +110,10 @@ export class WorkerPool {
 
   getPoolSize(): number {
     return this.workers.length;
+  }
+
+  getInitializedWorkersCount(): number {
+    return this.workers.filter((w) => w.isInitialized()).length;
   }
 
   /** Close all workers in parallel. */

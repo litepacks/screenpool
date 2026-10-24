@@ -10,13 +10,48 @@ describe('ScreenPool', () => {
     ).rejects.toThrow(ScreenPoolNotStartedError);
   });
 
-  it('stats reflect initial state', () => {
-    const pool = new ScreenPool({ executablePath: process.execPath, poolSize: 2 });
+  it('stats reflect initial state and minWorkers config', () => {
+    const pool = new ScreenPool({ executablePath: process.execPath, poolSize: 4, minWorkers: 1 });
     const stats = pool.stats();
     expect(stats.started).toBe(false);
-    expect(stats.poolSize).toBe(2);
+    expect(stats.poolSize).toBe(4);
+    expect(stats.minWorkers).toBe(1);
     expect(stats.activeJobs).toBe(0);
     expect(stats.queuedJobs).toBe(0);
+  });
+});
+
+describe('ScreenPool idleTimeout & lazy worker scaling', () => {
+  it('triggers idle timeout when pool has no active jobs or sessions', async () => {
+    const pool = new ScreenPool({
+      executablePath: process.execPath,
+      poolSize: 2,
+      minWorkers: 1,
+      idleTimeout: 50,
+    });
+
+    (pool as any).started = true;
+    (pool as any).workerPool = {
+      getActiveJobs: () => 0,
+      close: async () => undefined,
+      getInitializedWorkersCount: () => 1,
+    };
+    (pool as any).browserManager = {
+      close: async () => undefined,
+      getProvider: () => ({ name: 'puppeteer-core' }),
+    };
+
+    let idleTriggered = false;
+    pool.on('idle:timeout', () => {
+      idleTriggered = true;
+    });
+
+    // Start checking idle state
+    (pool as any).checkIdleState();
+
+    await new Promise((r) => setTimeout(r, 80));
+    expect(idleTriggered).toBe(true);
+    expect(pool.stats().started).toBe(false);
   });
 });
 

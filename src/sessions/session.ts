@@ -603,6 +603,7 @@ export class BrowserSessionImpl implements BrowserSession {
     }
 
     this.registry.detachListeners();
+    this.observationStore.clear();
 
     if (this.context) {
       try {
@@ -620,6 +621,7 @@ export class BrowserSessionImpl implements BrowserSession {
       }
     }
 
+    this.registry.clear();
     this.state = 'closed';
     this.eventBus.emit('session.closed');
     this.eventBus.removeAllListeners();

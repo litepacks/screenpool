@@ -89,6 +89,19 @@ export class PageRegistry {
     }
   }
 
+  /** Tear down registry and release all page references to prevent memory leaks */
+  clear(): void {
+    this.detachListeners();
+    for (const page of this.pages.values()) {
+      try {
+        page.rawPage.removeAllListeners();
+      } catch {}
+    }
+    this.pages.clear();
+    this.mainPageIdInternal = undefined;
+    this.activePageIdInternal = undefined;
+  }
+
   async register(
     rawPage: Page,
     metadata: RegisterPageMetadata = {},
@@ -291,10 +304,23 @@ export class PageRegistry {
     page.closedAt = new Date().toISOString();
     page.updatedAt = page.closedAt;
 
+    try {
+      page.rawPage.removeAllListeners();
+    } catch {}
+
     this.eventBus.emit('page.closed', {
       pageId: page.id,
       data: { openerPageId: page.openerPageId, url: page.url },
     });
+
+    // Prune excess closed pages beyond retention threshold to prevent memory growth
+    const closedPages = Array.from(this.pages.values()).filter((p) => p.state === 'closed');
+    if (closedPages.length > 10) {
+      const oldestClosed = closedPages[0];
+      if (oldestClosed && oldestClosed.id !== this.mainPageIdInternal && oldestClosed.id !== pageId) {
+        this.pages.delete(oldestClosed.id);
+      }
+    }
 
     // Check if the closed page was active
     if (this.activePageIdInternal === pageId) {
