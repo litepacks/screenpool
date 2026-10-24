@@ -14,10 +14,10 @@ export class WorkerPool {
     private readonly onWorkerRestarted?: (workerId: number) => void,
   ) {}
 
-  /** Initialize workers lazily: instantiate poolSize workers, but only pre-warm minWorkers (default: 1). */
+  /** Initialize workers lazily: instantiate poolSize workers, but only pre-warm minWorkers (default: poolSize). */
   async init(): Promise<void> {
     const minWorkers = Math.min(
-      this.config.minWorkers ?? 1,
+      this.config.minWorkers ?? this.config.poolSize,
       this.config.poolSize,
     );
     const workers = Array.from(
@@ -97,11 +97,7 @@ export class WorkerPool {
   /** Update browser reference for all workers in parallel. */
   async setBrowser(browser: Browser): Promise<void> {
     this.browser = browser;
-    await Promise.all(
-      this.workers
-        .filter((worker) => worker.isInitialized())
-        .map((worker) => worker.setBrowser(browser)),
-    );
+    await Promise.all(this.workers.map((worker) => worker.setBrowser(browser)));
   }
 
   getActiveJobs(): number {

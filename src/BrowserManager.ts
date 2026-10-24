@@ -163,7 +163,7 @@ export class BrowserManager {
     }
     await this.close();
     // Allow OS and Chromium process to release file locks and flush SQLite files
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 600));
     return this.launch();
   }
 
@@ -185,7 +185,7 @@ export class BrowserManager {
           // Dedicated local browser: attempt graceful close with a strict timeout
           const closePromise = browserToClose.close().catch(() => undefined);
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Browser.close timed out')), 2000),
+            setTimeout(() => reject(new Error('Browser.close timed out')), 5000),
           );
 
           await Promise.race([closePromise, timeoutPromise]).catch(() => {

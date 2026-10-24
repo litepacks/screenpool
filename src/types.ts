@@ -445,7 +445,7 @@ export function resolveConfig(config?: ScreenPoolConfig | null): ResolvedScreenP
     minWorkers:
       conf.minWorkers !== undefined
         ? Math.max(0, Math.min(conf.minWorkers, conf.poolSize ?? DEFAULT_POOL_SIZE))
-        : Math.min(1, conf.poolSize ?? DEFAULT_POOL_SIZE),
+        : (conf.poolSize ?? DEFAULT_POOL_SIZE),
     maxQueueSize: conf.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE,
     jobTimeout: conf.jobTimeout ?? DEFAULT_JOB_TIMEOUT,
     browserRestartAfterJobs: conf.browserRestartAfterJobs ?? 0,

@@ -405,12 +405,15 @@ export class ScreenPool extends EventEmitter {
     // Wait briefly for active rendering jobs to finish if any
     await this.waitForActiveJobs();
 
-    // Close any active sessions gracefully before reconfiguring browser
+    // Close any active sessions and worker resources gracefully before reconfiguring browser
     await this.sessions.closeAll().catch(() => undefined);
+    if (this.workerPool) {
+      await this.workerPool.close().catch(() => undefined);
+    }
 
     const newBrowser = await this.browserManager.reconfigure(options);
     if (this.workerPool) {
-      await this.workerPool.setBrowser(newBrowser);
+      await this.workerPool.restartAll(newBrowser);
     }
     this.emit('mode:switched', {
       headless: this.config.headless,
